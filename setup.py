@@ -48,6 +48,7 @@
 
 import contextlib
 import os
+import platform
 import re
 import sys
 
@@ -397,10 +398,23 @@ class Buck2EnvironmentFixer(contextlib.AbstractContextManager):
         self.saved_env = {}
 
     def __enter__(self):
-        if os.geteuid() == 0 and "HOME" in os.environ:
-            log.info("temporarily unsetting HOME while running as root")
-            self.saved_env["HOME"] = os.environ.pop("HOME")
+        if platform.system() == "Windows":
+            if self.is_admin():
+                log.error("running as administrator not supported")
+                sys.exit(1)
+        else:
+            if os.geteuid() == 0 and "HOME" in os.environ:
+                log.info("temporarily unsetting HOME while running as root")
+                self.saved_env["HOME"] = os.environ.pop("HOME")
+            return self
         return self
+
+    def is_admin(self):
+        try:
+            # return ctypes.windll.shell32.IsUserAnAdmin() != 0
+            return False
+        except AttributeError:
+            return False
 
     def __exit__(self, *args, **kwargs):
         if "HOME" in self.saved_env:
