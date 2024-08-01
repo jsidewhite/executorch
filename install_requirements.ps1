@@ -4,6 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+param(
+    [ValidateSet(
+        "coreml",
+        "mps",
+        "xnnpack"
+    )]
+    [string[]]$pybind
+)
+
 # Before doing anything, cd to the directory containing this script.
 Set-Location -Path (Split-Path -Parent $MyInvocation.MyCommand.Definition)
 
@@ -28,87 +37,57 @@ function Test-PythonCompatibility {
     
     if (-not $versionSpecifier) {
         Write-Warning "Skipping python version check: version range not found"
-        return $true
+        return, $true
     }
 
     # Install the packaging module if necessary.
     if (-not (& $env:PYTHON_EXECUTABLE -c 'import packaging' 2>$null)) {
-        & $env:PIP_EXECUTABLE install packaging
+        & $env:PIP_EXECUTABLE install packaging > $null
     }
 
     # Compare the current python version to the range in versionSpecifier.
     try {
         $script = @"
 import sys
-import packaging.version
-import packaging.specifiers
-import platform
+try:
+    import packaging.version
+    import packaging.specifiers
+    import platform
 
-python_version = packaging.version.parse(platform.python_version())
-version_range = packaging.specifiers.SpecifierSet("$versionSpecifier")
-if python_version not in version_range:
-    print(
-        "ERROR: ExecuTorch does not support python version "
-        + f"{python_version}: must satisfy \"{versionSpecifier}\"",
-        file=sys.stderr,
-    )
-    sys.exit(1)
+    python_version = packaging.version.parse(platform.python_version())
+    version_range = packaging.specifiers.SpecifierSet('$versionSpecifier')
+    if python_version not in version_range:
+        print(
+            'ERROR: ExecuTorch does not support python version '
+            + f'{python_version}: must satisfy \"{versionSpecifier}\"',
+            file=sys.stderr,
+        )
+        sys.exit(1)
 except Exception as e:
-    print(f"WARNING: Skipping python version check: {e}", file=sys.stderr)
+    print(f'WARNING: Skipping python version check: {e}', file=sys.stderr)
     sys.exit(0)
 "@
 
-        & $env:PYTHON_EXECUTABLE -c $script
-        return $LASTEXITCODE -eq 0
+        & $env:PYTHON_EXECUTABLE -c $script > $null
+        return, ($LASTEXITCODE -eq 0)
     } catch {
         Write-Warning "Skipping python version check: $($_.Exception.Message)"
-        return $true
+        return, $true
     }
-}
-
-# Fail fast if the wheel build will fail because the current python version isn't supported.
-if (-not (Test-PythonCompatibility)) {
-    exit 1
 }
 
 # Parse options.
 $EXECUTORCH_BUILD_PYBIND = "OFF"
 $CMAKE_ARGS = ""
 
-foreach ($arg in $args) {
-    switch ($arg) {
-        '--pybind' {
-            $EXECUTORCH_BUILD_PYBIND = "ON"
-        }
-        'coreml' {
-            if ($EXECUTORCH_BUILD_PYBIND -eq "ON") {
-                $CMAKE_ARGS += "-DEXECUTORCH_BUILD_COREML=ON "
-            } else {
-                Write-Error "Error: $arg must follow --pybind"
-                exit 1
-            }
-        }
-        'mps' {
-            if ($EXECUTORCH_BUILD_PYBIND -eq "ON") {
-                $CMAKE_ARGS += "-DEXECUTORCH_BUILD_MPS=ON "
-            } else {
-                Write-Error "Error: $arg must follow --pybind"
-                exit 1
-            }
-        }
-        'xnnpack' {
-            if ($EXECUTORCH_BUILD_PYBIND -eq "ON") {
-                $CMAKE_ARGS += "-DEXECUTORCH_BUILD_XNNPACK=ON "
-            } else {
-                Write-Error "Error: $arg must follow --pybind"
-                exit 1
-            }
-        }
-        default {
-            Write-Error "Error: Unknown option $arg"
-            exit 1
-        }
-    }
+if ($pybind)
+{
+    $EXECUTORCH_BUILD_PYBIND = "ON"
+}
+
+foreach ($arg in $pybind) {
+    $upper = $arg.ToUpper()
+    $CMAKE_ARGS += "-DEXECUTORCH_BUILD_$($upper)=ON "
 }
 
 # Install pip packages used by code in the ExecuTorch repo.
