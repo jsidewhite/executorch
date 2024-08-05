@@ -23,6 +23,8 @@ class Buck2Runner:
     def run(self, args: Sequence[str]) -> list[str]:
         """Runs buck2 with the given args and returns its stdout as a sequence of lines."""
         try:
+            print("hiihhihihihihi")
+            print([self._path] + args)
             cp: subprocess.CompletedProcess = subprocess.run(
                 [self._path] + args, capture_output=True, cwd=BUCK_CWD, check=True
             )

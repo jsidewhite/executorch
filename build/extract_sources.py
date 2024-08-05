@@ -113,6 +113,8 @@ class Target:
         )
 
         # Get the complete list of source files that this target depends on.
+        print("query")
+        print(query)
         sources: set[str] = set(runner.run(["cquery", query]))
 
         # Keep entries that match all of the filters.
