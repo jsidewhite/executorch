@@ -339,6 +339,7 @@ class CustomBuildPy(build_py):
     def run(self):
         # Copy python files to the output directory. This set of files is
         # defined by the py_module list and package_data patterns.
+        jwjwoiFEWSES
         build_py.run(self)
 
         # dst_root is the root of the `executorch` module in the output package
@@ -524,6 +525,36 @@ class CustomBuild(build):
         cmake_cache_dir = os.path.join(repo_root, self.build_temp, "cmake-out")
         self.mkpath(cmake_cache_dir)
 
+
+        
+        print("###############")
+        print("###############")
+        print("###############")
+        print("###############")
+        print("###############")
+        print("###############")
+        print("###############")
+
+        
+        print("cmake_cache_dir", cmake_cache_dir)
+        print("*cmake_args", cmake_args)
+        print(repo_root)
+        print(repo_root)
+        print(repo_root)
+        print(repo_root)
+        print(repo_root)
+        print(repo_root)
+        print("repo_root", repo_root)
+        print("repo_root", repo_root)
+        print("repo_root", repo_root)
+        print("repo_root", repo_root)
+        print("repo_root", repo_root)
+        print("repo_root", repo_root)
+        print("repo_root", repo_root)
+        print("repo_root", repo_root)
+
+
+
         # Generate the cmake cache from scratch to ensure that the cache state
         # is predictable.
         cmake_cache_file = Path(cmake_cache_dir) / "CMakeCache.txt"
@@ -540,6 +571,10 @@ class CustomBuild(build):
             self.spawn(["cmake", "-S", repo_root, "-B", cmake_cache_dir, *cmake_args])
 
         # Build the system.
+        print("repo_root566", repo_root)
+        print("repo_root566", repo_root)
+        print("repo_root566", repo_root)
+        print("repo_root566", repo_root)
         self.spawn(["cmake", "--build", cmake_cache_dir, *build_args])
 
         # Non-python files should live under this data directory.
@@ -558,7 +593,18 @@ class CustomBuild(build):
         )
 
         # Finally, run the underlying subcommands like build_py, build_ext.
+        print("repo_root22", repo_root)
+        print("repo_root22", repo_root)
+        print("repo_root22", repo_root)
+        print("repo_root22", repo_root)
+
         build.run(self)
+
+        
+        print("repo_root2", repo_root)
+        print("repo_root2", repo_root)
+        print("repo_root2", repo_root)
+        print("repo_root2", repo_root)
 
 
 def get_ext_modules() -> List[Extension]:
