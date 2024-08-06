@@ -304,7 +304,7 @@ endif()
 message(STATUS "Using python executable '${PYTHON_EXECUTABLE}'")
 
 # TODO(dbort): Fix these warnings and remove this flag.
-set(_common_compile_options -Wno-deprecated-declarations -fPIC)
+set(_common_compile_options -fPIC)
 
 # Let files say "include <executorch/path/to/header.h>".
 set(_common_include_directories ${CMAKE_CURRENT_SOURCE_DIR}/..)
@@ -706,7 +706,6 @@ if(EXECUTORCH_BUILD_PYBIND)
 
   # compile options for pybind
   set(_pybind_compile_options
-      -Wno-deprecated-declarations
       -fPIC
       -frtti
       -fexceptions

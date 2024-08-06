@@ -37,7 +37,7 @@ add_compile_options("-Wall" "-Werror")
 
 include(${EXECUTORCH_ROOT}/build/Utils.cmake)
 
-set(_common_compile_options -Wno-deprecated-declarations -fPIC
+set(_common_compile_options -fPIC
                             -DET_EVENT_TRACER_ENABLED
 )
 

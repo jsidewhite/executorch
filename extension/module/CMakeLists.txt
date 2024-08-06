@@ -30,7 +30,7 @@ endif()
 target_link_libraries(extension_module PRIVATE executorch extension_data_loader)
 target_include_directories(extension_module PUBLIC ${EXECUTORCH_ROOT}/..)
 target_compile_options(
-  extension_module PUBLIC -Wno-deprecated-declarations -fPIC
+  extension_module PUBLIC -fPIC
 )
 
 # Module extension built as a static library. TODO(gjcomer) Remove this target
@@ -41,7 +41,7 @@ target_link_libraries(
 )
 target_include_directories(extension_module_static PUBLIC ${EXECUTORCH_ROOT}/..)
 target_compile_options(
-  extension_module_static PUBLIC -Wno-deprecated-declarations -fPIC
+  extension_module_static PUBLIC -fPIC
 )
 
 # Install libraries

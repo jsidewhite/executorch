@@ -35,7 +35,7 @@ find_package(executorch CONFIG REQUIRED)
 target_compile_options(executorch INTERFACE -DET_EVENT_TRACER_ENABLED)
 find_package(gflags REQUIRED)
 
-set(_common_compile_options -Wno-deprecated-declarations -fPIC)
+set(_common_compile_options -fPIC)
 
 # Let files say "include <executorch/path/to/header.h>".
 set(_common_include_directories ${EXECUTORCH_ROOT}/..)

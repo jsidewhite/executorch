@@ -22,7 +22,7 @@ if(NOT PYTHON_EXECUTABLE)
   resolve_python_executable()
 endif()
 
-set(_common_compile_options -Wno-deprecated-declarations)
+set(_common_compile_options)
 
 include(${EXECUTORCH_ROOT}/build/Utils.cmake)
 include(${EXECUTORCH_ROOT}/build/Codegen.cmake)

@@ -34,7 +34,7 @@ if(NOT PYTHON_EXECUTABLE)
   resolve_python_executable()
 endif()
 
-set(_common_compile_options -Wno-deprecated-declarations -fPIC)
+set(_common_compile_options -fPIC)
 
 # Let files say "include <executorch/path/to/header.h>".
 set(_common_include_directories ${EXECUTORCH_ROOT}/..)

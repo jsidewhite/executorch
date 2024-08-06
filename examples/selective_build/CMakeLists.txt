@@ -33,7 +33,7 @@ if(NOT CMAKE_CXX_STANDARD)
   # Can't set to 11 due to executor_runner.cpp make_unique
 endif()
 
-set(_common_compile_options -Wno-deprecated-declarations -fPIC)
+set(_common_compile_options -fPIC)
 
 # Let files say "include <executorch/path/to/header.h>".
 set(_common_include_directories ${EXECUTORCH_ROOT}/..)

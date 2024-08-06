@@ -20,7 +20,7 @@ if(NOT EXECUTORCH_ROOT)
   set(EXECUTORCH_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 endif()
 
-set(_common_compile_options -Wno-deprecated-declarations -fPIC)
+# set(_common_compile_options -fPIC)
 
 include(${EXECUTORCH_ROOT}/build/Utils.cmake)
 include(${EXECUTORCH_ROOT}/build/Codegen.cmake)
@@ -103,7 +103,7 @@ if(EXECUTORCH_BUILD_KERNELS_CUSTOM_AOT)
   target_link_libraries(custom_ops_aot_lib PUBLIC cpublas torch)
   target_compile_options(
     custom_ops_aot_lib
-    PUBLIC -Wno-deprecated-declarations -fPIC -frtti -fexceptions
+    PUBLIC -fPIC -frtti -fexceptions
            ${_common_compile_options} -DET_USE_THREADPOOL
   )
 

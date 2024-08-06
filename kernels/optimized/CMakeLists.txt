@@ -21,7 +21,7 @@ if(NOT EXECUTORCH_ROOT)
   set(EXECUTORCH_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 endif()
 
-set(_common_compile_options -Wno-deprecated-declarations)
+set(_common_compile_options)
 
 # Note for apple platform we can rely on Accelerate framework Will come back to
 # this

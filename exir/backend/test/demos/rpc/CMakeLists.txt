@@ -24,7 +24,7 @@ include(${EXECUTORCH_ROOT}/build/Test.cmake)
 include(${EXECUTORCH_ROOT}/build/Utils.cmake)
 
 set(_common_include_directories ${EXECUTORCH_ROOT}/..)
-set(_common_compile_options -Wno-deprecated-declarations -fPIC)
+set(_common_compile_options -fPIC)
 
 add_library(executor_backend STATIC ExecutorBackendRegister.cpp ExecutorBackend.cpp)
 target_link_libraries(

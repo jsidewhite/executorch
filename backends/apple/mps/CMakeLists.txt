@@ -26,7 +26,7 @@ if(NOT FLATC_EXECUTABLE)
   set(FLATC_EXECUTABLE flatc)
 endif()
 
-set(_common_compile_options -Wno-deprecated-declarations)
+set(_common_compile_options)
 set(_common_include_directories ${EXECUTORCH_ROOT}/..)
 
 set(_mps_schema__include_dir "${CMAKE_BINARY_DIR}/schema/include")
