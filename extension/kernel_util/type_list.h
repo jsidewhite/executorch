@@ -11,7 +11,7 @@
 /// Forked from pytorch/c10/util/TypeList.h
 /// \brief Utilities for working with type lists.
 #pragma once
-#ifndef __ET_HAS_CPP_17
+#if !((__cplusplus) >= 201703L || (_MSVC_LANG >= 201703))
 #error "This header requires C++17"
 #endif
 
