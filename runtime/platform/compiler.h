@@ -59,7 +59,10 @@
 
 #endif // defined(__GNUC__)
 
-#if (__cplusplus) >= 201703L
+// jwjw: in future use /Zc:__cplusplus - see https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
+#define __ET_HAS_CPP_17 (__cplusplus) >= 201703L || (_MSVC_LANG >= 201703)
+
+#if __ET_HAS_CPP_17
 
 #define __ET_DEPRECATED [[deprecated]]
 #define __ET_FALLTHROUGH [[fallthrough]]
