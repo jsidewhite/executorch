@@ -25,12 +25,15 @@ __ET_NODISCARD Result<BoxedEvalueList<exec_aten::Tensor>> parseTensorList(
     MemoryManager* memory_manager) {
   EXECUTORCH_SCOPE_PROF("TensorParser::parseTensorList");
 
-  auto* tensor_list = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+  exec_aten::Tensor* tensor_list;
+  ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+      tensor_list,
       memory_manager->method_allocator(),
       exec_aten::Tensor,
       tensor_indices->size());
-  auto* evalp_list = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-      memory_manager->method_allocator(), EValue*, tensor_indices->size());
+  EValue** evalp_list;
+  ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+      evalp_list, memory_manager->method_allocator(), EValue*, tensor_indices->size());
 
   // For each tensor index look up the corresponding Tensor (which has been
   // already allocated) and stick it in the list.
