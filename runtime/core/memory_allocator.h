@@ -198,7 +198,7 @@ class MemoryAllocator {
   int32_t prof_id_ = -1;
 };
 
-#if __ET_HAVE_GNU_STATEMENT_EXPRESSIONS
+#if 1
 /**
  * Tries allocating from the specified MemoryAllocator*.
  *
@@ -215,15 +215,15 @@ class MemoryAllocator {
  * @endcode
  */
 #define ET_TRY_ALLOCATE_OR(memory_allocator__, nbytes__, ...)              \
-  ({                                                                       \
+  ([&](){                                                                       \
     void* et_try_allocate_result = memory_allocator__->allocate(nbytes__); \
     if (et_try_allocate_result == nullptr && nbytes__ > 0) {               \
       __VA_ARGS__                                                          \
       /* The args must return. */                                          \
       __ET_UNREACHABLE();                                                  \
     }                                                                      \
-    et_try_allocate_result;                                                \
-  })
+    return et_try_allocate_result;                                                \
+  }())
 
 /**
  * Tries allocating an instance of type__ from the specified MemoryAllocator*.
@@ -268,8 +268,8 @@ class MemoryAllocator {
  *       });
  * @endcode
  */
-#define ET_TRY_ALLOCATE_LIST_OR(memory_allocator__, type__, nelem__, ...) \
-  ({                                                                      \
+#define ET_TRY_ALLOCATE_LIST_OR(outvar__, memory_allocator__, type__, nelem__, ...) \
+  {                                                                      \
     type__* et_try_allocate_result =                                      \
         memory_allocator__->allocateList<type__>(nelem__);                \
     if (et_try_allocate_result == nullptr && nelem__ > 0) {               \
@@ -277,8 +277,8 @@ class MemoryAllocator {
       /* The args must return. */                                         \
       __ET_UNREACHABLE();                                                 \
     }                                                                     \
-    et_try_allocate_result;                                               \
-  })
+    outvar__ = et_try_allocate_result;                                               \
+  }
 #else // !__ET_HAVE_GNU_STATEMENT_EXPRESSIONS
 /**
  * The recommended alternative for statement expression-incompatible compilers
@@ -350,8 +350,8 @@ class MemoryAllocator {
  *   char* buf = ET_ALLOCATE_INSTANCE_OR_RETURN_ERROR(memory_allocator, MyType);
  * @endcode
  */
-#define ET_ALLOCATE_INSTANCE_OR_RETURN_ERROR(memory_allocator__, type__) \
-  ET_TRY_ALLOCATE_INSTANCE_OR(memory_allocator__, type__, {              \
+#define ET_ALLOCATE_INSTANCE_OR_RETURN_ERROR(outvar__, memory_allocator__, type__) \
+  ET_TRY_ALLOCATE_INSTANCE_OR(outvar__, memory_allocator__, type__, {              \
     return torch::executor::Error::MemoryAllocationFailed;               \
   })
 
@@ -365,12 +365,13 @@ class MemoryAllocator {
  *
  * Example:
  * @code
- *   Tensor* tensor_list = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
- *       memory_allocator, Tensor, num_tensors);
+ *   Tensor* tensor_list;
+ *   ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+ *       tensor_list, memory_allocator, Tensor, num_tensors);
  * @endcode
  */
-#define ET_ALLOCATE_LIST_OR_RETURN_ERROR(memory_allocator__, type__, nelem__) \
-  ET_TRY_ALLOCATE_LIST_OR(memory_allocator__, type__, nelem__, {              \
+#define ET_ALLOCATE_LIST_OR_RETURN_ERROR(outvar__, memory_allocator__, type__, nelem__) \
+  ET_TRY_ALLOCATE_LIST_OR(outvar__, memory_allocator__, type__, nelem__, {              \
     return torch::executor::Error::MemoryAllocationFailed;                    \
   })
 

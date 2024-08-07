@@ -141,7 +141,9 @@ class BackendDelegate final {
       CompileSpec** out_spec) {
     auto number_of_compile_specs = compile_specs_in_program->size();
 
-    CompileSpec* compile_specs_list = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+    CompileSpec* compile_specs_list;
+    ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+        compile_specs_list,
         backend_init_context.get_runtime_allocator(),
         CompileSpec,
         number_of_compile_specs);
@@ -223,8 +225,8 @@ Result<InstructionArgs> gen_instruction_arguments(
     EValue* values,
     size_t num_args,
     const int32_t* arg_idxs) {
-  EValue** arg_list =
-      ET_ALLOCATE_LIST_OR_RETURN_ERROR(method_allocator, EValue*, num_args);
+  EValue** arg_list;
+  ET_ALLOCATE_LIST_OR_RETURN_ERROR(arg_list, method_allocator, EValue*, num_args);
   for (size_t i = 0; i < num_args; ++i) {
     int32_t arg_idx = arg_idxs[i];
     ET_CHECK_OR_RETURN_ERROR(
@@ -284,8 +286,8 @@ Error Method::parse_values() {
   ET_CHECK_OR_RETURN_ERROR(
       flatbuffer_values != nullptr, InvalidProgram, "Missing values");
   size_t n_value = flatbuffer_values->size();
-  values_ = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-      memory_manager_->method_allocator(), EValue, n_value);
+  ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+      values_, memory_manager_->method_allocator(), EValue, n_value);
 
   // n_value_ counts the number of successfully-initialized values for ~Method()
   // to clean up, and is incremented at the bottom of the loop. This makes it
@@ -507,8 +509,8 @@ Error Method::resolve_operator(
 
   // resolve tensor meta
   auto method_allocator = memory_manager_->method_allocator();
-  TensorMeta* meta =
-      ET_ALLOCATE_LIST_OR_RETURN_ERROR(method_allocator, TensorMeta, n_args);
+  TensorMeta* meta;
+  ET_ALLOCATE_LIST_OR_RETURN_ERROR(meta, method_allocator, TensorMeta, n_args);
   size_t count = 0;
   for (size_t i = 0; i < n_args; i++) {
     EValue* eval = args[i];
@@ -516,8 +518,9 @@ Error Method::resolve_operator(
     if (eval->isTensor()) {
       auto tensor = eval->toTensor();
       meta[count].dtype_ = tensor.scalar_type();
-      exec_aten::DimOrderType* dim_order_ptr = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-          method_allocator, exec_aten::DimOrderType, tensor.dim());
+      exec_aten::DimOrderType* dim_order_ptr;
+      ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+          dim_order_ptr, method_allocator, exec_aten::DimOrderType, tensor.dim());
       size_t size = tensor.dim();
       err = get_dim_order(tensor, dim_order_ptr, size);
       ET_CHECK_OR_RETURN_ERROR(
@@ -586,8 +589,8 @@ Error Method::init(executorch_flatbuffer::ExecutionPlan* s_plan) {
     ET_CHECK_OR_RETURN_ERROR(
         delegates != nullptr, InvalidProgram, "Missing delegates field");
     size_t n_delegate = delegates->size();
-    delegates_ = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-        method_allocator, BackendDelegate, n_delegate);
+    ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+        delegates_, method_allocator, BackendDelegate, n_delegate);
 
     // n_delegate_ counts the number of successfully-initialized delegates for
     // ~Method() to clean up, and is incremented at the bottom of the loop. This
@@ -615,8 +618,7 @@ Error Method::init(executorch_flatbuffer::ExecutionPlan* s_plan) {
     ET_CHECK_OR_RETURN_ERROR(
         chains != nullptr && chains->size() > 0, InvalidProgram, "No chains");
     n_chains_ = chains->size();
-    chains_ =
-        ET_ALLOCATE_LIST_OR_RETURN_ERROR(method_allocator, Chain, n_chains_);
+    ET_ALLOCATE_LIST_OR_RETURN_ERROR(chains_, method_allocator, Chain, n_chains_);
 
     // Try resolving all operators before failing, to make it easier to debug
     // multiple problems at once.
@@ -631,10 +633,12 @@ Error Method::init(executorch_flatbuffer::ExecutionPlan* s_plan) {
           "Missing instructions in chain %zu",
           i);
       auto num_instructions = s_instructions->size();
-      auto chain_instruction_kernels = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-          method_allocator, OpFunction, num_instructions);
-      auto chain_instruction_arg_lists = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-          method_allocator, InstructionArgs, num_instructions);
+      OpFunction* chain_instruction_kernels;
+      ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+          chain_instruction_kernels, method_allocator, OpFunction, num_instructions);
+      InstructionArgs* chain_instruction_arg_lists;
+      ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+          chain_instruction_arg_lists, method_allocator, InstructionArgs, num_instructions);
 
       // Set up the argument lists ahead of time and store pointers to them to
       // use when the instructions are called
