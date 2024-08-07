@@ -151,3 +151,8 @@
 #define __ET_HAVE_GNU_STATEMENT_EXPRESSIONS 0
 #endif
 #endif // ifndef
+
+#ifdef _MSC_VER
+#include <intsafe.h>
+#define ssize_t SSIZE_T
+#endif
