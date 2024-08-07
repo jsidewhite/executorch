@@ -224,11 +224,7 @@ class ExecutorchProfilerInstructionScope {
 
 #define EXECUTORCH_SCOPE_PROF(name) do { (void)(name); } while (0)
 
-#define EXECUTORCH_PROFILE_INSTRUCTION_SCOPE(chain_idx, instruction_idx) \
-  ({                                                                     \
-    (void)(chain_idx);                                                   \
-    (void)(instruction_idx);                                             \
-  })
+#define EXECUTORCH_PROFILE_INSTRUCTION_SCOPE(chain_idx, instruction_idx) /**/
 
 #define EXECUTORCH_DUMP_PROFILE_RESULTS(prof_result_test) \
   memset(prof_result_test, 0, sizeof(torch::executor::prof_result_t));

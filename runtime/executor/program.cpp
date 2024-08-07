@@ -27,7 +27,9 @@
 #define ET_ENABLE_PROGRAM_VERIFICATION 1
 #endif
 
+#ifndef _MSC_VER
 #pragma clang diagnostic ignored "-Wshadow"
+#endif
 
 namespace torch {
 namespace executor {
