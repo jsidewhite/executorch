@@ -90,7 +90,7 @@ Result<executorch_flatbuffer::ExecutionPlan*> get_execution_plan(
     } else if (eh.error() == Error::NotFound) {
       // No header; the program consumes the whole file, and there are no
       // segments.
-      program_size = ET_UNWRAP(loader->size());
+      ET_UNWRAP_OR_RETURN(program_size, loader->size());
     } else {
       ET_LOG(Error, "Extended header may be corrupt");
       return eh.error();

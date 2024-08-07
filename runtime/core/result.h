@@ -211,6 +211,19 @@ T* Result<T>::operator->() {
  * @param[in] ... Optional format string for the log error message and its
  * arguments.
  */
+#define ET_UNWRAP11(result__) \
+  (result__) \
+
+#define ET_UNWRAP_OR_RETURN(__outvar, result__) \
+  {                                   \
+    auto et_result__ = (result__);     \
+    if (!et_result__.ok()) {           \
+      return et_result__.error();      \
+    }                                  \
+    __outvar = std::move(*et_result__);           \
+  }
+
+
 #define ET_UNWRAP(result__, ...) ET_INTERNAL_UNWRAP(result__, ##__VA_ARGS__)
 
 // Internal only: Use ET_UNWRAP() instead.

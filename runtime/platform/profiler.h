@@ -218,7 +218,7 @@ class ExecutorchProfilerInstructionScope {
 #define EXECUTORCH_PROFILE_CREATE_BLOCK(name) do { (void)(name); } while (0)
 
 #define EXECUTORCH_BEGIN_PROF(name) \
-  do {} while (0)
+  {}
 
 #define EXECUTORCH_END_PROF(token_id) do { (void)(token_id); } while (0)
 
