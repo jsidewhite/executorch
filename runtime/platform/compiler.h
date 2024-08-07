@@ -95,12 +95,27 @@
 /// Define a C symbol with weak linkage.
 #define __ET_WEAK __attribute__((weak))
 
+
 /**
  * Annotation marking a function as printf-like, providing compiler support
  * for format string argument checking.
  */
+// jwjw
+#ifdef _MSC_VER
+#include <stddef.h>
+#ifdef _USE_ATTRIBUTES_FOR_SAL
+#undef _USE_ATTRIBUTES_FOR_SAL
+#endif
+/* nolint */
+#define _USE_ATTRIBUTES_FOR_SAL 1
+#include <sal.h> // @manual
+#define __ET_PRINTFLIKE_PARAM _Printf_format_string_
+#define __ET_PRINTFLIKE(_string_index, _va_index) /**/
+#else
+#define __ET_PRINTFLIKE_PARAM /**/
 #define __ET_PRINTFLIKE(_string_index, _va_index) \
   __attribute__((format(printf, _string_index, _va_index)))
+#endif
 
 /// Name of the source file without a directory string.
 #define __ET_SHORT_FILENAME (__builtin_strrchr("/" __FILE__, '/') + 1)

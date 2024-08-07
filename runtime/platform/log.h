@@ -101,7 +101,7 @@ void vlogf(
     const char* filename,
     const char* function,
     size_t line,
-    const char* format,
+    __ET_PRINTFLIKE_PARAM const char* format,
     va_list args);
 
 /**
@@ -123,7 +123,7 @@ inline void logf(
     const char* filename,
     const char* function,
     size_t line,
-    const char* format,
+    __ET_PRINTFLIKE_PARAM const char* format,
     ...) {
 #if ET_LOG_ENABLED
   va_list args;
