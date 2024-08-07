@@ -240,8 +240,8 @@ class MemoryAllocator {
  *       { *out_err = Error::MemoryAllocationFailed; return nullopt; });
  * @endcode
  */
-#define ET_TRY_ALLOCATE_INSTANCE_OR(memory_allocator__, type__, ...) \
-  ({                                                                 \
+#define ET_TRY_ALLOCATE_INSTANCE_OR(outvar__, memory_allocator__, type__, ...) \
+  {                                                                 \
     type__* et_try_allocate_result =                                 \
         memory_allocator__->allocateInstance<type__>();              \
     if (et_try_allocate_result == nullptr) {                         \
@@ -249,8 +249,8 @@ class MemoryAllocator {
       /* The args must return. */                                    \
       __ET_UNREACHABLE();                                            \
     }                                                                \
-    et_try_allocate_result;                                          \
-  })
+    outvar__ = et_try_allocate_result;                                          \
+  }
 
 /**
  * Tries allocating multiple elements of a given type from the specified
@@ -261,8 +261,9 @@ class MemoryAllocator {
  *
  * Example:
  * @code
- *   Tensor* tensor_list = ET_TRY_ALLOCATE_LIST_OR(
- *       memory_allocator, Tensor, num_tensors, {
+ *   Tensor* tensor_list;
+ *   ET_TRY_ALLOCATE_LIST_OR(
+ *       tensor_list, memory_allocator, Tensor, num_tensors, {
  *         *out_err = Error::MemoryAllocationFailed;
  *         return nullopt;
  *       });

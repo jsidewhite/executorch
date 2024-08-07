@@ -78,10 +78,12 @@ Result<torch::executor::Tensor> parseTensor(
     // copy sizes and dim order out of flatbuffer
     // kimishpate: I think dim order can remain immutable and point to fb
     // memory, unless we plan to implement in-place permute
-    exec_aten::SizesType* sizes_buf = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-        method_allocator, exec_aten::SizesType, dim);
-    exec_aten::DimOrderType* dim_order_buf = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-        method_allocator, exec_aten::DimOrderType, dim);
+    exec_aten::SizesType* sizes_buf;
+    ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+        sizes_buf, method_allocator, exec_aten::SizesType, dim);
+    exec_aten::DimOrderType* dim_order_buf;
+    ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+        dim_order_buf, method_allocator, exec_aten::DimOrderType, dim);
     std::memcpy(
         sizes_buf, serialized_sizes, sizeof(exec_aten::SizesType) * dim);
     std::memcpy(
@@ -101,8 +103,9 @@ Result<torch::executor::Tensor> parseTensor(
   // Allocating strides buffer here and populating it.
   // In subsequent diffs we can remove strides accessor, however this
   // will introduce incompatible APIs between ATen Tensor and ETensor.
-  exec_aten::StridesType* strides = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-      method_allocator, exec_aten::StridesType, dim);
+  exec_aten::StridesType* strides;
+  ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+      strides, method_allocator, exec_aten::StridesType, dim);
   auto status =
       torch::executor::dim_order_to_stride(sizes, dim_order, dim, strides);
   ET_CHECK_OR_RETURN_ERROR(
@@ -110,8 +113,9 @@ Result<torch::executor::Tensor> parseTensor(
       Internal,
       "dim_order_to_stride returned invalid status");
 
-  auto* tensor_impl = ET_ALLOCATE_INSTANCE_OR_RETURN_ERROR(
-      method_allocator, torch::executor::TensorImpl);
+  torch::executor::TensorImpl* tensor_impl;
+  ET_ALLOCATE_INSTANCE_OR_RETURN_ERROR(
+      tensor_impl, method_allocator, torch::executor::TensorImpl);
   // Placement new on the allocated memory space. Note that we create this first
   // with null data so we can find its expected size before getting its memory.
   new (tensor_impl) torch::executor::TensorImpl(
