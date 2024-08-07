@@ -41,7 +41,19 @@
 
 #define __ET_NORETURN [[noreturn]]
 #define __ET_NOINLINE __attribute__((noinline))
+
+#ifdef _MSC_VER
+#ifndef FORCEINLINE
+#if (_MSC_VER >= 1200)
+#define FORCEINLINE __forceinline
+#else
+#define FORCEINLINE __inline
+#endif
+#endif
+#define __ET_INLINE FORCEINLINE
+#else
 #define __ET_INLINE __attribute__((always_inline)) inline
+#endif
 
 #if defined(__GNUC__)
 
