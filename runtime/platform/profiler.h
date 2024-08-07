@@ -215,14 +215,14 @@ class ExecutorchProfilerInstructionScope {
 
 #else
 
-#define EXECUTORCH_PROFILE_CREATE_BLOCK(name) ({ (void)(name); })
+#define EXECUTORCH_PROFILE_CREATE_BLOCK(name) do { (void)(name); } while (0)
 
 #define EXECUTORCH_BEGIN_PROF(name) \
-  {}
+  do {} while (0)
 
-#define EXECUTORCH_END_PROF(token_id) ({ (void)(token_id); })
+#define EXECUTORCH_END_PROF(token_id) do { (void)(token_id); } while (0)
 
-#define EXECUTORCH_SCOPE_PROF(name) ({ (void)(name); })
+#define EXECUTORCH_SCOPE_PROF(name) do { (void)(name); } while (0)
 
 #define EXECUTORCH_PROFILE_INSTRUCTION_SCOPE(chain_idx, instruction_idx) \
   ({                                                                     \
@@ -237,12 +237,12 @@ class ExecutorchProfilerInstructionScope {
   {}
 
 #define EXECUTORCH_TRACK_ALLOCATOR(name) \
-  (                                   \
-    [](auto const& name) -> int32_t   \
-    {                                 \
-      (void)(name);                   \
-      return -1;                      \
-    }(name)                           \
+  (                                           \
+    [](auto const& name) constexpr -> int32_t \
+    {                                         \
+      (void)(name);                           \
+      return -1;                              \
+    }(name)                                   \
   )
 
 #define EXECUTORCH_TRACK_ALLOCATION(id, size) \
