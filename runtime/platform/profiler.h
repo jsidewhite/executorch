@@ -237,15 +237,18 @@ class ExecutorchProfilerInstructionScope {
   {}
 
 #define EXECUTORCH_TRACK_ALLOCATOR(name) \
-  ({                                     \
-    (void)(name);                        \
-    -1;                                  \
-  })
+  (                                   \
+    [](auto const& name) -> int32_t   \
+    {                                 \
+      (void)(name);                   \
+      return -1;                      \
+    }(name)                           \
+  )
 
 #define EXECUTORCH_TRACK_ALLOCATION(id, size) \
-  ({                                          \
+  do {                                          \
     (void)(id);                               \
     (void)(size);                             \
-  })
+  } while (0)
 
 #endif
