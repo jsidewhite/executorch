@@ -96,7 +96,12 @@
 #endif // (__cplusplus) >= 202002L
 
 /// Define a C symbol with weak linkage.
+#ifdef _MSC_VER
+//todo:jwjw create weak system
+#define __ET_WEAK
+#else
 #define __ET_WEAK __attribute__((weak))
+#endif
 
 
 /**

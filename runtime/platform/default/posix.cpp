@@ -50,7 +50,7 @@
  * Assert that the PAL has been initialized.
  */
 #define _ASSERT_PAL_INITIALIZED()                                   \
-  ({                                                                \
+  {                                                                \
     if (!initialized) {                                             \
       fprintf(                                                      \
           ET_LOG_OUTPUT_FILE,                                       \
@@ -59,7 +59,7 @@
       fflush(ET_LOG_OUTPUT_FILE);                                   \
       et_pal_abort();                                               \
     }                                                               \
-  })
+  }
 
 #endif // NDEBUG
 
