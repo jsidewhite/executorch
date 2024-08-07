@@ -147,7 +147,7 @@ inline void logf(
  * @param[in] _format Log message format string.
  */
 #define ET_LOG(_level, _format, ...)                                          \
-  ({                                                                          \
+  do {                                                                          \
     const auto _log_level = torch::executor::LogLevel::_level;                \
     if (static_cast<uint32_t>(_log_level) >=                                  \
         static_cast<uint32_t>(torch::executor::LogLevel::ET_MIN_LOG_LEVEL)) { \
@@ -161,7 +161,7 @@ inline void logf(
           _format,                                                            \
           ##__VA_ARGS__);                                                     \
     }                                                                         \
-  })
+  } while (0)
 
 #else // ET_LOG_ENABLED
 

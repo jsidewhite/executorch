@@ -34,12 +34,12 @@
  * @param[in] ... Format string arguments.
  */
 #define ET_CHECK_MSG(_cond, _format, ...)                               \
-  ({                                                                    \
+  do {                                                                    \
     if __ET_UNLIKELY (!(_cond)) {                                       \
       ET_ASSERT_MESSAGE_EMIT(" (%s): " _format, #_cond, ##__VA_ARGS__); \
       torch::executor::runtime_abort();                                 \
     }                                                                   \
-  })
+  } while (0)
 
 /**
  * Abort the runtime if the condition is not true.
@@ -48,12 +48,12 @@
  * @param[in] _cond Condition asserted as true.
  */
 #define ET_CHECK(_cond)                       \
-  ({                                          \
+  do {                                          \
     if __ET_UNLIKELY (!(_cond)) {             \
       ET_ASSERT_MESSAGE_EMIT(": %s", #_cond); \
       torch::executor::runtime_abort();       \
     }                                         \
-  })
+  } while (0)
 
 #ifdef NDEBUG
 
