@@ -7,7 +7,7 @@
  */
 
 #pragma once
-#if __cplusplus < 201703L
+#ifndef __ET_HAS_CPP_17
 #error "This header requires C++17"
 #endif
 
