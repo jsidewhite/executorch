@@ -123,6 +123,15 @@ enum class Error : error_code_t {
  * @param[in] ... Optional format string for the log error message and its
  * arguments.
  */
+#ifdef _MSC_VER
+#define __EXPANDER(x) x
+#define __ARG_COUNT_IMPL(_1, _2, _3, COUNT, ...) COUNT
+#define __ARG_COUNT(...) __EXPANDER(__ARG_COUNT_IMPL(__VA_ARGS__, 3, 2, 1))
+#define __MACRO_CHOOSER2(name, count) name##count
+#define __MACRO_CHOOSER1(name, count) __MACRO_CHOOSER2(name, count)
+#define __MACRO_CHOOSER(name, ...) __MACRO_CHOOSER1(name, __ARG_COUNT(__VA_ARGS__))
+#define ET_CHECK_OK_OR_RETURN_ERROR(...) __EXPANDER(__MACRO_CHOOSER(ET_INTERNAL_CHECK_OK_OR_RETURN_ERROR_, __VA_ARGS__)(__VA_ARGS__))
+#else
 #define ET_CHECK_OK_OR_RETURN_ERROR(error__, ...) \
   ET_INTERNAL_CHECK_OK_OR_RETURN_ERROR(error__, ##__VA_ARGS__)
 
@@ -131,6 +140,7 @@ enum class Error : error_code_t {
   ET_INTERNAL_CHECK_OK_OR_RETURN_ERROR_SELECT(    \
       __VA_ARGS__, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1) \
   (__VA_ARGS__)
+#endif
 
 /**
  * Internal only: Use ET_CHECK_OK_OR_RETURN_ERROR() instead.
