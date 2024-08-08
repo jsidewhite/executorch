@@ -297,5 +297,15 @@ struct wrapper_impl<R (*)(Args...), f, int, N> {
 #define _WRAP_1(func) \
   ::torch::executor::wrapper_impl<decltype(&func), func>::wrap
 
+#ifdef _MSC_VER
+#define __EXPANDER(x) x
+#define __ARG_COUNT_IMPL(_1, _2, COUNT, ...) COUNT
+#define __ARG_COUNT(...) __EXPANDER(__ARG_COUNT_IMPL(__VA_ARGS__, 2, 1))
+#define __MACRO_CHOOSER2(name, count) name##count
+#define __MACRO_CHOOSER1(name, count) __MACRO_CHOOSER2(name, count)
+#define __MACRO_CHOOSER(name, ...) __MACRO_CHOOSER1(name, __ARG_COUNT(__VA_ARGS__))
+#define WRAP_TO_ATEN(...) __EXPANDER(__MACRO_CHOOSER(_WRAP_, __VA_ARGS__)(__VA_ARGS__))
+#else
 #define GET_MACRO(_1, _2, NAME, ...) NAME
 #define WRAP_TO_ATEN(...) GET_MACRO(__VA_ARGS__, _WRAP_2, _WRAP_1)(__VA_ARGS__)
+#endif

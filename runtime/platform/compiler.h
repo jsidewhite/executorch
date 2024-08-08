@@ -141,7 +141,7 @@
 /// Name of the source file without a directory string.
 #ifdef _MSC_VER
 #define __ET_SHORT_FILENAME (strrchr("/" __FILE__, '/') + 1)
-#elif
+#else
 #define __ET_SHORT_FILENAME (__builtin_strrchr("/" __FILE__, '/') + 1)
 #endif
 
