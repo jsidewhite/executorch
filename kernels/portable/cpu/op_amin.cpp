@@ -45,7 +45,12 @@ Tensor& amin_out(
         for (size_t out_ix = 0; out_ix < out.numel(); ++out_ix) {
           out_data[out_ix] = reduce_over_dim_list<CTYPE>(
               [](CTYPE v, CTYPE min_v) {
-                return std::isnan(v) || v < min_v ? v : min_v;
+                if constexpr (std::is_floating_point<CTYPE>::value) {
+                  return std::isnan(v) || v < min_v ? v : min_v;
+                }
+                else {
+                  return v < min_v ? v : min_v;
+                }
               },
               in,
               dim_list,
