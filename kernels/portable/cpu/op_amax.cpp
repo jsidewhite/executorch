@@ -45,7 +45,12 @@ Tensor& amax_out(
         for (size_t out_ix = 0; out_ix < out.numel(); ++out_ix) {
           out_data[out_ix] = reduce_over_dim_list<CTYPE>(
               [](CTYPE v, CTYPE max_v) {
-                return std::isnan(v) || v > max_v ? v : max_v;
+                if constexpr (std::is_floating_point<CTYPE>::value) {
+                  return std::isnan(v) || v > max_v ? v : max_v;
+                }
+                else {
+                  return v > max_v ? v : max_v;
+                }
               },
               in,
               dim_list,
