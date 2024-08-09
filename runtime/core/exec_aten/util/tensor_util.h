@@ -154,7 +154,7 @@
  * macros independently, because it only calls ET_CHECK_MSG once.
  */
 #define ET_CHECK_SAME_SHAPE_AND_DTYPE2(a__, b__)                              \
-  ({                                                                          \
+  do {                                                                          \
     const size_t a_numel__ = (a__).numel();                                   \
     const size_t b_numel__ = (b__).numel();                                   \
     const size_t a_dim__ = (a__).dim();                                       \
@@ -184,7 +184,7 @@
           a_size__,                                                           \
           b_size__);                                                          \
     }                                                                         \
-  })
+  } while (0)
 
 #define ET_CHECK_SAME_SHAPE_AND_DTYPE3(a__, b__, c__)                  \
   ({                                                                   \

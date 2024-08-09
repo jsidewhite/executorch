@@ -102,10 +102,10 @@
  * Assert that this code location is unreachable during execution.
  */
 #define ET_ASSERT_UNREACHABLE()                                   \
-  ({                                                              \
+  do {                                                              \
     ET_CHECK_MSG(false, "Execution should not reach this point"); \
     __ET_UNREACHABLE();                                           \
-  })
+  } while (0)
 
 /**
  * Assert that this code location is unreachable during execution.
@@ -113,8 +113,8 @@
  * @param[in] _message Message on how to avoid this assertion error.
  */
 #define ET_ASSERT_UNREACHABLE_MSG(_message)                            \
-  ({                                                                   \
+  do {                                                                   \
     ET_CHECK_MSG(                                                      \
         false, "Execution should not reach this point. %s", _message); \
     __ET_UNREACHABLE();                                                \
-  })
+  } while (0)
