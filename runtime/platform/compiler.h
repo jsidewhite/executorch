@@ -91,6 +91,12 @@
 
 #endif // (__cplusplus) >= 201703L
 
+#ifdef _MSC_VER
+#define __ET_RESTRICT __restrict
+#else
+#define __ET_RESTRICT __restrict__
+#endif
+
 // UNLIKELY Macro
 // example
 // if __ET_UNLIKELY(a > 10 && b < 5) {
