@@ -78,15 +78,7 @@ Tensor& roll_out(
 
   constexpr auto name = "roll.out";
 
-  ET_SWITCH_REALHB_TYPES(in.scalar_type(), ctx, name, CTYPE, [&] {
-    const CTYPE* in_data = in.const_data_ptr<CTYPE>();
-    CTYPE* out_data = out.mutable_data_ptr<CTYPE>();
-
-    for (size_t ix = 0; ix < out.numel(); ++ix) {
-      out_data[ix] = in_data[unshift_flat_ix(ix, in, dim_shifts)];
-    }
-  });
-
+  
   return out;
 }
 

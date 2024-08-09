@@ -26,19 +26,6 @@ Tensor& any_all_out(RuntimeContext& ctx, const Tensor& in, Tensor& out) {
   ScalarType out_type = out.scalar_type();
   constexpr auto name = "any.all_out";
 
-  ET_SWITCH_REALHB_TYPES(in_type, ctx, name, CTYPE_IN, [&] {
-    ET_SWITCH_TWO_TYPES(Bool, Byte, out_type, ctx, name, CTYPE_OUT, [&] {
-      const auto data_in = in.const_data_ptr<CTYPE_IN>();
-      auto data_out = out.mutable_data_ptr<CTYPE_OUT>();
-      data_out[0] = static_cast<CTYPE_OUT>(false);
-      for (auto i = 0; i < in.numel(); ++i) {
-        if (static_cast<bool>(data_in[i])) {
-          data_out[0] = static_cast<CTYPE_OUT>(true);
-          break;
-        }
-      }
-    });
-  });
 
   return out;
 }
@@ -72,31 +59,7 @@ Tensor& any_dims_out(
   ScalarType out_type = out.scalar_type();
   constexpr auto name = "any.dims_out";
 
-  ET_SWITCH_REALHB_TYPES(in_type, ctx, name, CTYPE_IN, [&] {
-    ET_SWITCH_TWO_TYPES(Bool, Byte, out_type, ctx, name, CTYPE_OUT, [&] {
-      CTYPE_OUT* out_data = out.mutable_data_ptr<CTYPE_OUT>();
-      if (dim_list.has_value() && dim_list.value().empty()) {
-        const CTYPE_IN* in_data = in.const_data_ptr<CTYPE_IN>();
-        for (size_t out_ix = 0; out_ix < out.numel(); ++out_ix) {
-          out_data[out_ix] =
-              static_cast<CTYPE_OUT>(static_cast<bool>(in_data[out_ix]));
-        }
-      } else {
-        for (size_t out_ix = 0; out_ix < out.numel(); ++out_ix) {
-          bool any = false;
-          if (in.numel() > 0) {
-            any = map_reduce_over_dim_list<CTYPE_IN, bool>(
-                [](CTYPE_IN v) { return static_cast<bool>(v); },
-                [](bool outv, bool acc) { return acc || outv; },
-                in,
-                dim_list,
-                out_ix);
-          }
-          out_data[out_ix] = static_cast<CTYPE_OUT>(any);
-        }
-      }
-    });
-  });
+
 
   return out;
 }
@@ -126,27 +89,6 @@ Tensor& any_out(
   ScalarType out_type = out.scalar_type();
   constexpr auto name = "any.out";
 
-  ET_SWITCH_REALHB_TYPES(in_type, ctx, name, CTYPE_IN, [&] {
-    ET_SWITCH_TWO_TYPES(Bool, Byte, out_type, ctx, name, CTYPE_OUT, [&] {
-      CTYPE_OUT* out_data = out.mutable_data_ptr<CTYPE_OUT>();
-      for (size_t out_ix = 0; out_ix < out.numel(); ++out_ix) {
-        CTYPE_OUT any = false;
-        if (in.numel() > 0) {
-          std::tuple<CTYPE_OUT, long> acc =
-              map_reduce_over_dim<CTYPE_IN, CTYPE_OUT>(
-                  [](CTYPE_IN v) { return static_cast<bool>(v); },
-                  [](bool outv, long, bool acc, long) {
-                    return std::tuple<bool, long>{acc || outv, 0};
-                  },
-                  in,
-                  dim,
-                  out_ix);
-          any = std::get<0>(acc);
-        }
-        out_data[out_ix] = any;
-      }
-    });
-  });
 
   return out;
 }

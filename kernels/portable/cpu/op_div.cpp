@@ -209,30 +209,6 @@ Tensor& div_scalar_mode_out(
 
   constexpr auto name = "div.Scalar_mode_out";
 
-  ET_SWITCH_REALB_TYPES(a_type, ctx, name, CTYPE_A, [&]() {
-    ET_SWITCH_SCALAR_OBJ_TYPES(b_type, ctx, name, CTYPE_B, [&]() {
-      ET_SWITCH_REAL_TYPES(out_type, ctx, name, CTYPE, [&]() {
-        CTYPE_B b_val;
-        utils::extract_scalar(b, &b_val);
-        CTYPE b_casted = static_cast<CTYPE>(b_val);
-
-        apply_unary_map_fn(
-            [b_casted, mode](const CTYPE_A val_a) {
-              CTYPE a_casted = static_cast<CTYPE>(val_a);
-              CTYPE value = a_casted / b_casted;
-              if (mode.has_value() && mode.value() == "trunc") {
-                value = std::trunc(value);
-              } else if (mode.has_value() && mode.value() == "floor") {
-                value = utils::floor_divide(a_casted, b_casted);
-              }
-              return value;
-            },
-            a.const_data_ptr<CTYPE_A>(),
-            out.mutable_data_ptr<CTYPE>(),
-            out.numel());
-      });
-    });
-  });
 
   return out;
 }

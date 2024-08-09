@@ -160,10 +160,7 @@ std::tuple<Tensor&, Tensor&, Tensor&> native_group_norm_out(
 
   constexpr auto name = "native_group_norm.out";
 
-  ET_SWITCH_FLOAT_TYPES(input.scalar_type(), ctx, name, CTYPE, [&]() {
-    group_norm<CTYPE>(
-        input, weight, bias, N, C, HxW, group, eps, out, mean_out, rstd_out);
-  });
+  
 
   return ret_val;
 }

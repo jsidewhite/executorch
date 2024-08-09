@@ -80,35 +80,7 @@ std::tuple<Tensor&, Tensor&, Tensor&> _native_batch_norm_legit_no_training_out(
 
   constexpr auto name = "native_batch_norm_legit_no_training.out";
 
-  ET_SWITCH_FLOAT_TYPES(in.scalar_type(), ctx, name, CTYPE, [&] {
-    const CTYPE* in_data = in.const_data_ptr<CTYPE>();
-    CTYPE* out_data = out.mutable_data_ptr<CTYPE>();
-
-    const CTYPE* const mean_data = running_mean.const_data_ptr<CTYPE>();
-    const CTYPE* const var_data = running_var.const_data_ptr<CTYPE>();
-
-    for (size_t i = 0; i < outer; ++i) {
-      for (size_t c = 0; c < C; ++c) {
-        CTYPE mean = mean_data[c];
-        CTYPE var = var_data[c];
-        CTYPE invstd = 1.0 / std::sqrt(var + eps);
-        CTYPE weight_val = 1;
-        if (weight.has_value()) {
-          weight_val = weight.value().const_data_ptr<CTYPE>()[c];
-        }
-        CTYPE bias_val = 0;
-        if (bias.has_value()) {
-          bias_val = bias.value().const_data_ptr<CTYPE>()[c];
-        }
-        for (size_t j = 0; j < inner; ++j) {
-          *out_data = (*in_data - mean) * invstd * weight_val + bias_val;
-          out_data++;
-          in_data++;
-        }
-      }
-    }
-  });
-
+  
   return ret_val;
 }
 

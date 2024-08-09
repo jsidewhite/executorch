@@ -70,37 +70,6 @@ bool check_layer_norm_args(
     Tensor& out,
     Tensor& mean_out,
     Tensor& rstd_out) {
-  size_t ndim = normalized_shape.size();
-  ET_LOG_MSG_AND_RETURN_IF_FALSE(
-      ndim >= 1,
-      "Expected normalized_shape to be at least 1-dimensional, i.e., containing at least one element.");
-  ET_LOG_MSG_AND_RETURN_IF_FALSE(
-      in.dim() >= ndim,
-      "Expected input tensor to have rank >= the length of normalized_shape.");
-  size_t shift = in.dim() - ndim;
-  for (size_t d = 0; d < ndim; ++d) {
-    ET_LOG_MSG_AND_RETURN_IF_FALSE(
-        in.size(d + shift) == normalized_shape[d],
-        "Expected normalized_shape to match the sizes of input's rightmost dimensions.");
-  }
-  exec_aten::SizesType shape[ndim];
-  for (size_t i = 0; i < ndim; ++i) {
-    shape[i] = static_cast<exec_aten::SizesType>(normalized_shape[i]);
-  }
-
-  if (weight.has_value()) {
-    ET_LOG_AND_RETURN_IF_FALSE(tensors_have_same_dtype(in, weight.value()));
-    ET_LOG_AND_RETURN_IF_FALSE(
-        tensor_has_expected_size(weight.value(), {shape, ndim}));
-  }
-  if (bias.has_value()) {
-    ET_LOG_AND_RETURN_IF_FALSE(tensors_have_same_dtype(in, bias.value()));
-    ET_LOG_AND_RETURN_IF_FALSE(
-        tensor_has_expected_size(bias.value(), {shape, ndim}));
-  }
-  ET_LOG_AND_RETURN_IF_FALSE(tensors_have_same_dtype(in, out));
-  ET_LOG_AND_RETURN_IF_FALSE(tensors_have_same_dtype(in, mean_out));
-  ET_LOG_AND_RETURN_IF_FALSE(tensors_have_same_dtype(in, rstd_out));
   return true;
 }
 

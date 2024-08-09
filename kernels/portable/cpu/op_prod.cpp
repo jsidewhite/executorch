@@ -33,16 +33,6 @@ Tensor& prod_out(
   ScalarType out_type = out.scalar_type();
   constexpr auto name = "prod.int_out";
 
-  ET_SWITCH_REALHB_TYPES(in_type, ctx, name, CTYPE_IN, [&] {
-    ET_SWITCH_REALHB_TYPES(out_type, ctx, name, CTYPE_OUT, [&] {
-      const auto data_in = in.const_data_ptr<CTYPE_IN>();
-      auto data_out = out.mutable_data_ptr<CTYPE_OUT>();
-      data_out[0] = static_cast<CTYPE_OUT>(1);
-      for (auto i = 0; i < in.numel(); ++i) {
-        data_out[0] *= static_cast<CTYPE_OUT>(data_in[i]);
-      }
-    });
-  });
 
   return out;
 }
@@ -73,27 +63,7 @@ Tensor& prod_int_out(
   ScalarType out_type = out.scalar_type();
   constexpr auto name = "prod.int_out";
 
-  ET_SWITCH_REALHB_TYPES(in_type, ctx, name, CTYPE_IN, [&] {
-    ET_SWITCH_REALHB_TYPES(out_type, ctx, name, CTYPE_OUT, [&] {
-      CTYPE_OUT* out_data = out.mutable_data_ptr<CTYPE_OUT>();
-      for (size_t out_ix = 0; out_ix < out.numel(); ++out_ix) {
-        CTYPE_OUT prod = 1;
-        if (in.numel() > 0) {
-          std::tuple<CTYPE_OUT, long> acc =
-              map_reduce_over_dim<CTYPE_IN, CTYPE_OUT>(
-                  [](CTYPE_IN v) { return static_cast<CTYPE_OUT>(v); },
-                  [](CTYPE_OUT outv, long, CTYPE_OUT acc, long) {
-                    return std::tuple<CTYPE_OUT, long>{acc * outv, 0};
-                  },
-                  in,
-                  dim,
-                  out_ix);
-          prod = std::get<0>(acc);
-        }
-        out_data[out_ix] = prod;
-      }
-    });
-  });
+  
 
   return out;
 }

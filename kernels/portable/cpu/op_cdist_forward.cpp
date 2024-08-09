@@ -157,9 +157,6 @@ Tensor& _cdist_forward_out(
   ScalarType out_type = out.scalar_type();
   constexpr auto name = "_cdist_forward.out";
 
-  ET_SWITCH_FLOAT_TYPES(
-      out_type, ctx, name, CTYPE, [&] { cdist<CTYPE>(x1, x2, out, p); });
-
   return out;
 }
 

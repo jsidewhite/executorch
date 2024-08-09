@@ -47,18 +47,6 @@ Tensor& full_like_out(
 
   constexpr auto name = "scalar_tensor.out";
 
-  ET_SWITCH_REALB_TYPES(val_type, ctx, name, CTYPE_VAL, [&] {
-    CTYPE_VAL val;
-    utils::extract_scalar(fill_value, &val);
-
-    ET_SWITCH_REALHB_TYPES(out_type, ctx, name, CTYPE_OUT, [&] {
-      CTYPE_OUT val_casted = static_cast<CTYPE_OUT>(val);
-      auto data_out = out.mutable_data_ptr<CTYPE_OUT>();
-      for (size_t i = 0; i < out.numel(); ++i) {
-        data_out[i] = val_casted;
-      }
-    });
-  });
 
   return out;
 }
