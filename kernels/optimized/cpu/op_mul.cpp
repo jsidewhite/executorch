@@ -197,20 +197,6 @@ Tensor& opt_mul_scalar_out(
       ET_SWITCH_SCALAR_OBJ_TYPES(b_type, ctx, "mul.Scalar_out", CTYPE_B, [&]() {
         ET_SWITCH_REALB_TYPES(
             common_type, ctx, "mul.Scalar_out", CTYPE_IN, [&]() {
-              ET_SWITCH_REALHB_TYPES(
-                  out_type, ctx, "mul.Scalar_out", CTYPE_OUT, [&]() {
-                    CTYPE_B b_val;
-                    ET_EXTRACT_SCALAR(b, b_val);
-                    CTYPE_IN b_casted = static_cast<CTYPE_IN>(b_val);
-
-                    const size_t n = a.numel();
-                    const CTYPE_A* a_data = a.const_data_ptr<CTYPE_A>();
-                    CTYPE_OUT* out_data = out.mutable_data_ptr<CTYPE_OUT>();
-                    for (auto i = 0; i < n; ++i) {
-                      out_data[i] = static_cast<CTYPE_OUT>(
-                          static_cast<CTYPE_IN>(a_data[i]) * b_casted);
-                    }
-                  });
             });
       });
     });
