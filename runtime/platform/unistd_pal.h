@@ -10,7 +10,7 @@
 
 #include <stdlib.h>
 #include <io.h>
-#include <getopt.h> /* getopt at: https://gist.github.com/ashelly/7776712 */
+//#include <getopt.h> /* getopt at: https://gist.github.com/ashelly/7776712 */
 #include <process.h> /* for getpid() and the exec..() family */
 #include <direct.h> /* for _getcwd() and _chdir() */
 
@@ -37,16 +37,16 @@
 /* read, write, and close are NOT being #defined here, because while there are file handle specific versions for Windows, they probably don't work for sockets. You need to look at your app and consider whether to call e.g. closesocket(). */
 
 #ifdef _WIN64
-#define ssize_t __int64
+//#define ssize_t __int64
 #else
-#define ssize_t long
+//#define ssize_t long
 #endif
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 /* should be in some equivalent to <sys/types.h> */
-typedef __int8            int8_t;
+//typedef __int8            int8_t;
 typedef __int16           int16_t; 
 typedef __int32           int32_t;
 typedef __int64           int64_t;

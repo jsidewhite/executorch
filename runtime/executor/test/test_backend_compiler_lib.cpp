@@ -134,10 +134,10 @@ class BackendWithCompiler final : public PyTorchBackendInterface {
         "Instruction count must be non-negative: %ld",
         instruction_number);
 
-    auto op_list =
-        ET_ALLOCATE_INSTANCE_OR_RETURN_ERROR(runtime_allocator, DemoOpList);
-    op_list->ops = ET_ALLOCATE_LIST_OR_RETURN_ERROR(
-        runtime_allocator, DemoOp, instruction_number);
+    DemoOpList* op_list;
+    ET_ALLOCATE_INSTANCE_OR_RETURN_ERROR(op_list, runtime_allocator, DemoOpList);
+    ET_ALLOCATE_LIST_OR_RETURN_ERROR(
+        op_list->ops, runtime_allocator, DemoOp, instruction_number);
     op_list->numops = static_cast<size_t>(instruction_number);
 
     parse_delegate(instruction_set_start + 1, kSignLiteral, op_list->ops);
