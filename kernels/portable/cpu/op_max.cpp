@@ -59,10 +59,18 @@ std::tuple<Tensor&, Tensor&> max_out(
         for (size_t out_ix = 0; out_ix < max.numel(); ++out_ix) {
           std::tuple<CTYPE, long> acc = reduce_over_dim<CTYPE>(
               [](CTYPE v, long ix, CTYPE acc_val, long acc_ix) {
-                if (!std::isnan(acc_val) && (std::isnan(v) || v > acc_val)) {
-                  acc_val = v;
-                  acc_ix = ix;
-                }
+                  if constexpr (std::is_floating_point<CTYPE>::value) {
+                      if (!std::isnan(acc_val) && (std::isnan(v) || v > acc_val)) {
+                          acc_val = v;
+                          acc_ix = ix;
+                      }
+                  }
+                  else {
+                      if (v > acc_val) {
+                          acc_val = v;
+                          acc_ix = ix;
+                      }
+                  }
                 return std::tuple<CTYPE, long>{acc_val, acc_ix};
               },
               in,

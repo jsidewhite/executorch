@@ -38,7 +38,12 @@ Tensor& relu_out(RuntimeContext& ctx, const Tensor& in, Tensor& out) {
   ET_SWITCH_REAL_TYPES(in.scalar_type(), ctx, "relu.out", CTYPE, [&]() {
     apply_unary_map_fn(
         [](const CTYPE val_in) {
-          return (std::isnan(val_in) || val_in >= CTYPE(0)) ? val_in : CTYPE(0);
+            if constexpr (std::is_floating_point<CTYPE>::value) {
+                return (std::isnan(val_in) || val_in >= CTYPE(0)) ? val_in : CTYPE(0);
+            }
+            else {
+                return (val_in >= CTYPE(0)) ? val_in : CTYPE(0);
+            }
         },
         in.const_data_ptr<CTYPE>(),
         out.mutable_data_ptr<CTYPE>(),
