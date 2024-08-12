@@ -26,6 +26,27 @@ Tensor& full_out(
   ScalarType val_type = utils::get_scalar_dtype(fill_value);
   ScalarType out_type = out.scalar_type();
 
+  // Resize for dynamic shape
+  ET_KERNEL_CHECK_MSG(
+      ctx,
+      resize_tensor(out, sizes) == Error::Ok,
+      InvalidArgument,
+      out,
+      "Failed to resize output tensor.");
+
+  ET_SWITCH_REAL_TYPES_AND(Bool, val_type, ctx, "full.out", CTYPE_VAL, [&] {
+    CTYPE_VAL val;
+    utils::extract_scalar(fill_value, &val);
+
+    ET_SWITCH_REAL_TYPES_AND(Bool, out_type, ctx, "full.out", CTYPE_OUT, [&] {
+      CTYPE_OUT val_casted = static_cast<CTYPE_OUT>(val);
+      auto data_out = out.mutable_data_ptr<CTYPE_OUT>();
+      for (size_t i = 0; i < out.numel(); ++i) {
+        data_out[i] = val_casted;
+      }
+    });
+  });
+
   return out;
 }
 

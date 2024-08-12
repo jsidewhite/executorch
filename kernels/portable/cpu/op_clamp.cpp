@@ -42,6 +42,27 @@ __ET_NODISCARD bool check_bounds(
     const char* val_name) {
   auto is_valid = true;
 
+  ET_SWITCH_SCALAR_OBJ_TYPES(val_type, ctx, "clamp.out", CTYPE_VAL, [&]() {
+    CTYPE_VAL val = 0;
+    utils::extract_scalar(val_scalar, &val);
+    if (isIntegralType(out_type, /*includeBool=*/false)) {
+      ET_SWITCH_INT_TYPES(out_type, ctx, "clamp.out", CTYPE_OUT, [&]() {
+        if (is_out_of_bounds<CTYPE_VAL, CTYPE_OUT, long>(val)) {
+          ET_LOG(Error, "%s value out of bounds", val_name);
+          is_valid = false;
+        }
+      });
+    } else if (isFloatingType(out_type)) {
+      ET_SWITCH_FLOATH_TYPES(out_type, ctx, "clamp", CTYPE_OUT, [&]() {
+        if (std::isfinite(val) &&
+            is_out_of_bounds<CTYPE_VAL, CTYPE_OUT, double>(val)) {
+          ET_LOG(Error, "%s value out of bounds", val_name);
+          is_valid = false;
+        }
+      });
+    }
+  });
+
   return is_valid;
 }
 
@@ -184,6 +205,38 @@ Tensor& clamp_tensor_out(
 
   constexpr auto name = "clamp.Tensor_out";
 
+  ET_SWITCH_REALHB_TYPES(in_type, ctx, name, CTYPE_IN, [&]() {
+    ET_SWITCH_REALHB_TYPES(min_type, ctx, name, CTYPE_MIN, [&]() {
+      ET_SWITCH_REALHB_TYPES(max_type, ctx, name, CTYPE_MAX, [&]() {
+        ET_SWITCH_REALHB_TYPES(out_type, ctx, name, CTYPE_OUT, [&]() {
+          apply_ternary_elementwise_fn<
+              CTYPE_IN,
+              CTYPE_MIN,
+              CTYPE_MAX,
+              CTYPE_OUT>(
+              [has_min, has_max](
+                  const CTYPE_IN val_in,
+                  const CTYPE_MIN val_min,
+                  const CTYPE_MAX val_max) {
+                CTYPE_OUT val_out = static_cast<CTYPE_OUT>(val_in);
+                if (has_min) {
+                  val_out = utils::max_override(
+                      val_out, static_cast<CTYPE_OUT>(val_min));
+                }
+                if (has_max) {
+                  val_out = utils::min_override(
+                      val_out, static_cast<CTYPE_OUT>(val_max));
+                }
+                return val_out;
+              },
+              in,
+              min,
+              max,
+              out);
+        });
+      });
+    });
+  });
 
   return out;
 }

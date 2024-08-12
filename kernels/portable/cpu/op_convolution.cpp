@@ -403,6 +403,12 @@ Tensor& convolution_out(
 
   constexpr auto name = "convolution.out";
 
+  ET_SWITCH_REALH_TYPES(in_type, ctx, name, CTYPE, [&]() {
+    ET_SWITCH_REALHB_TYPES(bias_type, ctx, name, CTYPE_BIAS, [&]() {
+      convolution_wrapper<CTYPE, CTYPE_BIAS>(
+          in, weight, bias, stride, padding, dilation, transposed, groups, out);
+    });
+  });
 
   return out;
 }
