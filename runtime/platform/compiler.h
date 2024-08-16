@@ -144,6 +144,10 @@
   __attribute__((format(printf, _string_index, _va_index)))
 #endif
 
+#ifdef _MSC_VER
+#include <string.h>
+#endif
+
 /// Name of the source file without a directory string.
 #ifdef _MSC_VER
 #define __ET_SHORT_FILENAME (strrchr("/" __FILE__, '/') + 1)
