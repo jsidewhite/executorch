@@ -8,6 +8,23 @@
 
 #pragma once
 
+#ifdef _MSC_VER
+// Work around MSVC signbit type support.
+//
+// executorch/kernels/portable/cpu/util/math_util.h(28,12): error C2668: 'signbit': ambiguous call to overloaded function
+// C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\corecrt_math.h(319,32): note: could be 'bool signbit(long double) noexcept'
+// C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\corecrt_math.h(314,32): note: or       'bool signbit(double) noexcept'
+// C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\corecrt_math.h(309,32): note: or       'bool signbit(float) noexcept'
+// executorch/kernels/portable/cpu/util/math_util.h(28,12): note: while trying to match the argument list '(INT_T)'
+//
+// From: https://developercommunity.visualstudio.com/t/stdsignbit-misses-overloads-for-integer-types/923187
+#include <type_traits>
+namespace std {
+    template<typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
+    bool signbit(T v) { return v < 0; }
+}
+#endif
+
 namespace torch {
 namespace executor {
 namespace native {
