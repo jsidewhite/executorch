@@ -83,7 +83,20 @@ bool check_layer_norm_args(
         in.size(d + shift) == normalized_shape[d],
         "Expected normalized_shape to match the sizes of input's rightmost dimensions.");
   }
+
+#ifdef _MSC_VER
+  // Work around MSVC not supporting VLAs (variable length arrays).
+  //
+  // executorch\kernels\portable\cpu\util\normalization_ops_util.cpp(92,30): error C2131: expression did not evaluate to a constant
+  // executorch\kernels\portable\cpu\util\normalization_ops_util.cpp(92,30): note: failure was caused by a read of a variable outside its lifetime
+  // executorch\kernels\portable\cpu\util\normalization_ops_util.cpp(92,30): note: see usage of 'ndim'
+  // executorch\kernels\portable\cpu\util\normalization_ops_util.cpp(95,14): error C3863: array type 'exec_aten::SizesType [ndim]' is not assignable
+  auto shape = new (std::nothrow) exec_aten::SizesType[ndim];
+  ET_LOG_AND_RETURN_IF_FALSE(shape);
+  auto shapeOwner = std::unique_ptr<exec_aten::SizesType>(shape);
+#else
   exec_aten::SizesType shape[ndim];
+#endif
   for (size_t i = 0; i < ndim; ++i) {
     shape[i] = static_cast<exec_aten::SizesType>(normalized_shape[i]);
   }
