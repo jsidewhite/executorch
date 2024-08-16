@@ -54,11 +54,19 @@ __ET_NODISCARD bool check_bounds(
       });
     } else if (isFloatingType(out_type)) {
       ET_SWITCH_FLOATH_TYPES(out_type, ctx, "clamp", CTYPE_OUT, [&]() {
-        if (std::isfinite(val) &&
-            is_out_of_bounds<CTYPE_VAL, CTYPE_OUT, double>(val)) {
-          ET_LOG(Error, "%s value out of bounds", val_name);
-          is_valid = false;
-        }
+          if constexpr (std::is_floating_point<CTYPE_VAL>::value) {
+              if (std::isfinite(val) &&
+                  is_out_of_bounds<CTYPE_VAL, CTYPE_OUT, double>(val)) {
+                  ET_LOG(Error, "%s value out of bounds", val_name);
+                  is_valid = false;
+              }
+          }
+          else {
+              if (is_out_of_bounds<CTYPE_VAL, CTYPE_OUT, double>(val)) {
+                  ET_LOG(Error, "%s value out of bounds", val_name);
+                  is_valid = false;
+              }
+          }
       });
     }
   });
