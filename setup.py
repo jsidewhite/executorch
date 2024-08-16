@@ -339,7 +339,6 @@ class CustomBuildPy(build_py):
     def run(self):
         # Copy python files to the output directory. This set of files is
         # defined by the py_module list and package_data patterns.
-        jwjwoiFEWSES
         build_py.run(self)
 
         # dst_root is the root of the `executorch` module in the output package
