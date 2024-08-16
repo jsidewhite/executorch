@@ -13,13 +13,6 @@
 #include <cmath>
 #include <type_traits>
 
-// from: https://developercommunity.visualstudio.com/t/stdsignbit-misses-overloads-for-integer-types/923187
-#include <type_traits>
-namespace std {
-    template<typename T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
-        bool signbit(T v) { return signbit(static_cast<double>(v)); }
-}
-
 namespace torch {
 namespace executor {
 namespace native {
