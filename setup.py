@@ -192,7 +192,11 @@ class _BaseExtension(Extension):
         """
         # TODO(dbort): share the cmake-out location with CustomBuild. Can get a
         # handle with installer.get_finalized_command('build')
-        cmake_cache_dir: Path = Path().cwd() / installer.build_temp / "cmake-out"
+        cmake_cache_dir: Path = Path().cwd() / installer.build_temp / "../cmake-out"
+
+        print("##############################################")
+        print("##############################################")
+        print("jwjw: cmake_cache_dir: ", cmake_cache_dir)
 
         # Construct the full source path, resolving globs. If there are no glob
         # pattern characters, this will just ensure that the source file exists.
@@ -236,6 +240,9 @@ class BuiltFile(_BaseExtension):
             installer: The InstallerBuildExt instance that is installing the
                 file.
         """
+        print("##############################################")
+        print("##############################################")
+        print("jwjw: Path(installer.build_lib) : ", Path(installer.build_lib))
         dst_root = Path(installer.build_lib).resolve()
 
         if self.dst.endswith("/"):
@@ -612,7 +619,7 @@ def get_ext_modules() -> List[Extension]:
     ext_modules = []
     if ShouldBuild.flatc():
         ext_modules.append(
-            BuiltFile("third-party/flatbuffers/flatc", "executorch/data/bin/")
+            BuiltFile("third-party/flatbuffers/Debug/flatc.exe", "executorch/data/bin/")
         )
 
     if ShouldBuild.pybindings():
@@ -628,7 +635,7 @@ def get_ext_modules() -> List[Extension]:
         ext_modules.append(
             # Install the prebuilt library for custom ops used in llama.
             BuiltFile(
-                "extension/llm/custom_ops/libcustom_ops_aot_lib.*",
+                "extension/llm/custom_ops/Debug/custom_ops_aot_lib.dll",
                 "executorch/extension/llm/custom_ops",
             )
         )
