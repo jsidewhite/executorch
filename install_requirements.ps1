@@ -10,7 +10,12 @@ param(
         "mps",
         "xnnpack"
     )]
-    [string[]]$pybind
+    [string[]]$pybind,
+    [ValidateSet(
+        "quantized",
+        "quantized_aot"
+    )]
+    [string[]]$build_kernels
 )
 
 # Before doing anything, cd to the directory containing this script.
@@ -88,6 +93,11 @@ if ($pybind)
 foreach ($arg in $pybind) {
     $upper = $arg.ToUpper()
     $CMAKE_ARGS += "-DEXECUTORCH_BUILD_$($upper)=ON "
+}
+
+foreach ($arg in $build_kernels) {
+    $upper = $arg.ToUpper()
+    $CMAKE_ARGS += "-DEXECUTORCH_BUILD_KERNELS_$($upper)=ON "
 }
 
 # Install pip packages used by code in the ExecuTorch repo.
