@@ -58,7 +58,9 @@ FileDataLoader::~FileDataLoader() {
   std::free(const_cast<char*>(file_name_));
   // fd_ can be -1 if this instance was moved from, but closing a negative fd is
   // safe (though it will return an error).
-  ::close(fd_);
+  if (fd_ != -1) {
+    ::close(fd_);
+  }
 }
 
 Result<FileDataLoader> FileDataLoader::from(
