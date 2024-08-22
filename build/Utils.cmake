@@ -18,6 +18,8 @@
 # It should also be cmake-lint clean.
 #
 
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
+
 # Public function to print summary for all configurations. For new variables,
 # it's recommended to add them here.
 function(executorch_print_configuration_summary)
