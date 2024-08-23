@@ -17,6 +17,9 @@
 #include <numeric>
 #include <ostream>
 #include <type_traits>
+
+#include <executorch/runtime/platform/compiler.h>
+
 /**
  * @file
  * This header defines common, low-level operations that can often be

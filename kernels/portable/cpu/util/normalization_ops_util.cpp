@@ -93,7 +93,7 @@ bool check_layer_norm_args(
   // executorch\kernels\portable\cpu\util\normalization_ops_util.cpp(95,14): error C3863: array type 'exec_aten::SizesType [ndim]' is not assignable
   auto shape = new (std::nothrow) exec_aten::SizesType[ndim];
   ET_LOG_AND_RETURN_IF_FALSE(shape);
-  auto shapeOwner = std::unique_ptr<exec_aten::SizesType>(shape);
+  auto shapeOwner = std::unique_ptr<exec_aten::SizesType[]>(shape);
 #else
   exec_aten::SizesType shape[ndim];
 #endif

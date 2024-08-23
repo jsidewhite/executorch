@@ -142,7 +142,7 @@ function(gen_custom_ops_aot_lib)
   # Find `Torch`.
   find_package(Torch REQUIRED)
   # This lib uses ATen lib, so we explicitly enable rtti and exceptions.
-  target_compile_options(${GEN_LIB_NAME} PRIVATE -frtti -fexceptions)
+  target_compile_options(${GEN_LIB_NAME} PRIVATE -frtti -fexceptions /Zc:preprocessor /permissive-)
   target_compile_definitions(${GEN_LIB_NAME} PRIVATE USE_ATEN_LIB=1)
   include_directories(${TORCH_INCLUDE_DIRS})
   target_link_libraries(${GEN_LIB_NAME} PRIVATE torch)

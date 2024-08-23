@@ -283,7 +283,16 @@ Tensor& quantize_per_channel_out(
   check_quantize_per_tensor_args(input, quant_min, quant_max, dtype, out);
 
   // a list contains all dimensions except axis
+#ifdef _MSC_VER
+  // Work around MSVC not supporting VLAs (variable length arrays).
+  //
+  // executorch\kernels\quantized\cpu\op_quantize.cpp(289,15): error C3863: array type 'int64_t ['function'-1]' is not assignable
+  auto dims = new (std::nothrow) int64_t[input.dim() - 1];
+  ET_CHECK(dims);
+  auto dimsOwner = std::unique_ptr<int64_t[]>(dims);
+#else
   int64_t dims[input.dim() - 1];
+#endif
   for (int64_t i = 0; i < input.dim() - 1; i++) {
     if (i < axis) {
       dims[i] = i;
