@@ -20,7 +20,9 @@ def _find_executable_files_under(dir):
     bin_names = []
     for filename in os.listdir(dir):
         filepath = os.path.join(dir, filename)
-        if os.path.isfile(filepath) and os.access(filepath, os.X_OK):
+        if sys.platform == "win32" and filepath.endswith(".exe"):
+            filename = os.path.splitext(filename)[0]
+        if filename != '__init__.py' and os.path.isfile(filepath) and os.access(filepath, os.X_OK):
             bin_names.append(filename)
     return bin_names
 
