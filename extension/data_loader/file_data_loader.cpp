@@ -26,7 +26,7 @@
 // Some platforms (e.g. Xtensa) do not support pread() that we use to read the
 // file at different offsets simultaneously from multiple threads not affecting
 // each other. We list them below and use a workaround for them.
-#if defined(__xtensa__)
+#if defined(__xtensa__) || defined(_MSC_VER)
 #define ET_HAVE_PREAD 0
 #endif // defined(__xtensa__)
 
