@@ -39,9 +39,6 @@
  *   https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html
  */
 
-#define __ET_NORETURN [[noreturn]]
-#define __ET_NOINLINE __attribute__((noinline))
-
 #ifdef _MSC_VER
 #ifndef FORCEINLINE
 #if (_MSC_VER >= 1200)
@@ -50,7 +47,6 @@
 #define FORCEINLINE __inline
 #endif
 #endif
-#define ET_NORETURN FORCEINLINE
 #define ET_NOINLINE __declspec(noinline)
 #define ET_INLINE FORCEINLINE
 #else
