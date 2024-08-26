@@ -223,6 +223,7 @@ Result<size_t> FileDataLoader::size() const {
 
 ET_NODISCARD Error FileDataLoader::load_into(
     size_t offset,
+
     size_t size,
     ET_UNUSED const SegmentInfo& segment_info,
     void* buffer) const {
@@ -250,7 +251,7 @@ ET_NODISCARD Error FileDataLoader::load_into(
   // Cannot use the standard dup() or fcntl() calls because the returned
   // duplicate will share the underlying file record and affect the original fd
   // when seeking on multiple threads simultaneously.
-  const auto dup_fd = ET_HAVE_PREAD ? fd_ : ::open(file_name_, O_RDONLY);
+  const auto dup_fd = ET_HAVE_PREAD ? fd_ : ::open(file_name_, _O_BINARY);
 
   while (needed > 0) {
     // Reads on macOS will fail with EINVAL if size > INT32_MAX.
@@ -271,7 +272,8 @@ ET_NODISCARD Error FileDataLoader::load_into(
     if (nread <= 0) {
       // nread == 0 means EOF, which we shouldn't see if we were able to read
       // the full amount. nread < 0 means an error occurred.
-      ET_LOG(
+
+        ET_LOG(
           Error,
           "Reading from %s: failed to read %zu bytes at offset %zu: %s",
           file_name_,
