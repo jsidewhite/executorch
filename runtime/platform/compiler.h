@@ -50,23 +50,28 @@
 #define FORCEINLINE __inline
 #endif
 #endif
-#define __ET_INLINE FORCEINLINE
+#define ET_NORETURN FORCEINLINE
+#define ET_NOINLINE __declspec(noinline)
+#define ET_INLINE FORCEINLINE
 #else
-#define __ET_INLINE __attribute__((always_inline)) inline
+#define ET_NOINLINE __attribute__((noinline))
+#define ET_INLINE __attribute__((always_inline)) inline
 #endif
+
+#define ET_NORETURN [[noreturn]]
 
 #if defined(__GNUC__)
 
-#define __ET_UNREACHABLE() __builtin_unreachable()
+#define ET_UNREACHABLE() __builtin_unreachable()
 
 #elif defined(_MSC_VER)
 
-#define __ET_UNREACHABLE() __assume(0)
+#define ET_UNREACHABLE() __assume(0)
 
 #else // defined(__GNUC__)
 
-#define __ET_UNREACHABLE() \
-  while (1)                \
+#define ET_UNREACHABLE() \
+  while (1)              \
     ;
 
 #endif // defined(__GNUC__)
@@ -77,17 +82,22 @@
 
 #if __ET_HAS_CPP_17
 
-#define __ET_DEPRECATED [[deprecated]]
-#define __ET_FALLTHROUGH [[fallthrough]]
-#define __ET_NODISCARD [[nodiscard]]
-#define __ET_UNUSED [[maybe_unused]]
+#define ET_DEPRECATED [[deprecated]]
+#define ET_EXPERIMENTAL \
+  [[deprecated("This API is experimental and may change without notice.")]]
+#define ET_FALLTHROUGH [[fallthrough]]
+#define ET_NODISCARD [[nodiscard]]
+#define ET_UNUSED [[maybe_unused]]
 
 #else
 
-#define __ET_DEPRECATED __attribute__((deprecated))
-#define __ET_FALLTHROUGH __attribute__((fallthrough))
-#define __ET_NODISCARD __attribute__((warn_unused_result))
-#define __ET_UNUSED __attribute__((unused))
+#define ET_DEPRECATED __attribute__((deprecated))
+#define ET_EXPERIMENTAL \
+  __attribute__((       \
+      deprecated("This API is experimental and may change without notice.")))
+#define ET_FALLTHROUGH __attribute__((fallthrough))
+#define ET_NODISCARD __attribute__((warn_unused_result))
+#define ET_UNUSED __attribute__((unused))
 
 #endif // (__cplusplus) >= 201703L
 
@@ -99,27 +109,27 @@
 
 // UNLIKELY Macro
 // example
-// if __ET_UNLIKELY(a > 10 && b < 5) {
+// if ET_UNLIKELY(a > 10 && b < 5) {
 //   do something
 // }
 #if (__cplusplus) >= 202002L
 
-#define __ET_LIKELY(expr) (expr) [[likely]]
-#define __ET_UNLIKELY(expr) (expr) [[unlikely]]
+#define ET_LIKELY(expr) (expr) [[likely]]
+#define ET_UNLIKELY(expr) (expr) [[unlikely]]
 
 #else
 
-#define __ET_LIKELY(expr) (expr)
-#define __ET_UNLIKELY(expr) (expr)
+#define ET_LIKELY(expr) (expr)
+#define ET_UNLIKELY(expr) (expr)
 
 #endif // (__cplusplus) >= 202002L
 
 /// Define a C symbol with weak linkage.
 #ifdef _MSC_VER
 //todo:jwjw create weak system
-#define __ET_WEAK
+#define ET_WEAK
 #else
-#define __ET_WEAK __attribute__((weak))
+#define ET_WEAK __attribute__((weak))
 #endif
 
 
@@ -136,11 +146,11 @@
 /* nolint */
 #define _USE_ATTRIBUTES_FOR_SAL 1
 #include <sal.h> // @manual
-#define __ET_PRINTFLIKE_PARAM _Printf_format_string_
-#define __ET_PRINTFLIKE(_string_index, _va_index) /**/
+#define ET_PRINTFLIKE_PARAM _Printf_format_string_
+#define ET_PRINTFLIKE(_string_index, _va_index) /**/
 #else
-#define __ET_PRINTFLIKE_PARAM /**/
-#define __ET_PRINTFLIKE(_string_index, _va_index) \
+#define ET_PRINTFLIKE_PARAM /**/
+#define ET_PRINTFLIKE(_string_index, _va_index) \
   __attribute__((format(printf, _string_index, _va_index)))
 #endif
 
@@ -150,9 +160,9 @@
 
 /// Name of the source file without a directory string.
 #ifdef _MSC_VER
-#define __ET_SHORT_FILENAME (strrchr("/" __FILE__, '/') + 1)
+#define ET_SHORT_FILENAME (strrchr("/" __FILE__, '/') + 1)
 #else
-#define __ET_SHORT_FILENAME (__builtin_strrchr("/" __FILE__, '/') + 1)
+#define ET_SHORT_FILENAME (__builtin_strrchr("/" __FILE__, '/') + 1)
 #endif
 
 #ifndef __has_builtin
@@ -161,29 +171,55 @@
 
 #if __has_builtin(__builtin_LINE)
 /// Current line as an integer.
-#define __ET_LINE __builtin_LINE()
+#define ET_LINE __builtin_LINE()
 #else
-#define __ET_LINE __LINE__
+#define ET_LINE __LINE__
 #endif // __has_builtin(__builtin_LINE)
 
 #if __has_builtin(__builtin_FUNCTION)
 /// Name of the current function as a const char[].
-#define __ET_FUNCTION __builtin_FUNCTION()
+#define ET_FUNCTION __builtin_FUNCTION()
 #else
-#define __ET_FUNCTION __FUNCTION__
+#define ET_FUNCTION __FUNCTION__
 #endif // __has_builtin(__builtin_FUNCTION)
 
 // Whether the compiler supports GNU statement expressions.
 // https://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
-#ifndef __ET_HAVE_GNU_STATEMENT_EXPRESSIONS
+#ifndef ET_HAVE_GNU_STATEMENT_EXPRESSIONS
 #if (defined(__GNUC__) && __GNUC__ >= 3) || defined(__clang__)
-#define __ET_HAVE_GNU_STATEMENT_EXPRESSIONS 1
+#define ET_HAVE_GNU_STATEMENT_EXPRESSIONS 1
+#elif defined(_MSC_VER)
+// We don't support statement expressions on MSVC, but we're working around
+// them in code for now.
+#define ET_HAVE_GNU_STATEMENT_EXPRESSIONS 1
 #else
-#define __ET_HAVE_GNU_STATEMENT_EXPRESSIONS 0
+#define ET_HAVE_GNU_STATEMENT_EXPRESSIONS 0
 #endif
 #endif // ifndef
 
-#ifdef _MSC_VER
-#include <intsafe.h>
-#define ssize_t SSIZE_T
+// Define size_t and ssize_t.
+#ifndef _WIN32
+#include <sys/types.h>
+#else
+#include <stddef.h>
+using ssize_t = ptrdiff_t;
 #endif
+
+// DEPRECATED: Use the non-underscore-prefixed versions instead.
+// TODO(T199005537): Remove these once all users have stopped using them.
+#define __ET_DEPRECATED ET_DEPRECATED
+#define __ET_FALLTHROUGH ET_FALLTHROUGH
+#define __ET_FUNCTION ET_FUNCTION
+#define __ET_HAVE_GNU_STATEMENT_EXPRESSIONS ET_HAVE_GNU_STATEMENT_EXPRESSIONS
+#define __ET_INLINE ET_INLINE
+#define __ET_LIKELY ET_LIKELY
+#define __ET_LINE ET_LINE
+#define __ET_NODISCARD ET_NODISCARD
+#define __ET_NOINLINE ET_NOINLINE
+#define __ET_NORETURN ET_NORETURN
+#define __ET_PRINTFLIKE ET_PRINTFLIKE
+#define __ET_SHORT_FILENAME ET_SHORT_FILENAME
+#define __ET_UNLIKELY ET_UNLIKELY
+#define __ET_UNREACHABLE ET_UNREACHABLE
+#define __ET_UNUSED ET_UNUSED
+#define __ET_WEAK ET_WEAK

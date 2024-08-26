@@ -22,7 +22,7 @@
   ET_LOG(                                        \
       Fatal,                                     \
       "In function %s(), assert failed" _format, \
-      __ET_FUNCTION,                             \
+      ET_FUNCTION,                               \
       ##__VA_ARGS__)
 
 /**
@@ -35,9 +35,9 @@
  */
 #define ET_CHECK_MSG(_cond, _format, ...)                               \
   do {                                                                    \
-    if __ET_UNLIKELY (!(_cond)) {                                       \
+    if ET_UNLIKELY (!(_cond)) {                                         \
       ET_ASSERT_MESSAGE_EMIT(" (%s): " _format, #_cond, ##__VA_ARGS__); \
-      torch::executor::runtime_abort();                                 \
+      ::executorch::runtime::runtime_abort();                           \
     }                                                                   \
   } while (0)
 
@@ -49,9 +49,9 @@
  */
 #define ET_CHECK(_cond)                       \
   do {                                          \
-    if __ET_UNLIKELY (!(_cond)) {             \
+    if ET_UNLIKELY (!(_cond)) {               \
       ET_ASSERT_MESSAGE_EMIT(": %s", #_cond); \
-      torch::executor::runtime_abort();       \
+      ::executorch::runtime::runtime_abort(); \
     }                                         \
   } while (0)
 
@@ -104,7 +104,7 @@
 #define ET_ASSERT_UNREACHABLE()                                   \
   do {                                                              \
     ET_CHECK_MSG(false, "Execution should not reach this point"); \
-    __ET_UNREACHABLE();                                           \
+    ET_UNREACHABLE();                                             \
   } while (0)
 
 /**
@@ -116,5 +116,5 @@
   do {                                                                   \
     ET_CHECK_MSG(                                                      \
         false, "Execution should not reach this point. %s", _message); \
-    __ET_UNREACHABLE();                                                \
+    ET_UNREACHABLE();                                                  \
   } while (0)

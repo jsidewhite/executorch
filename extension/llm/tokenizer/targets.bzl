@@ -25,6 +25,27 @@ def define_common_targets():
         ],
     )
 
+    runtime.python_library(
+        name = "utils",
+        srcs = [
+            "utils.py",
+        ],
+        base_module = "executorch.extension.llm.utils",
+        visibility = [
+            "//executorch/examples/...",
+            "//executorch/extension/llm/tokenizer/...",
+            "//bento/...",
+            "//bento_kernels/...",
+        ],
+        deps = [
+            "//executorch/examples/models/llama2/tokenizer:tiktoken",
+        ],
+        _is_external_target = True,
+        external_deps = [
+            "sentencepiece-py",
+        ],
+    )
+
     runtime.python_binary(
         name = "tokenizer_py",
         main_module = "executorch.extension.llm.tokenizer.tokenizer",
@@ -39,15 +60,28 @@ def define_common_targets():
     )
 
     runtime.cxx_library(
+        name = "tokenizer_header",
+        exported_headers = [
+            "tokenizer.h",
+        ],
+        exported_deps = [
+            "//executorch/runtime/core:core",
+        ],
+        visibility = [
+            "@EXECUTORCH_CLIENTS",
+        ],
+    )
+
+    runtime.cxx_library(
         name = "bpe_tokenizer",
         srcs = [
             "bpe_tokenizer.cpp",
         ],
         exported_headers = [
-            "tokenizer.h",
             "bpe_tokenizer.h",
         ],
         exported_deps = [
+            ":tokenizer_header",
             "//executorch/runtime/core:core",
         ],
         visibility = [
@@ -61,11 +95,11 @@ def define_common_targets():
             "tiktoken.cpp",
         ],
         exported_headers = [
-            "tokenizer.h",
             "tiktoken.h",
             "base64.h",
         ],
         exported_deps = [
+            ":tokenizer_header",
             "//executorch/runtime/core:core",
         ],
         visibility = [

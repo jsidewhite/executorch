@@ -36,16 +36,16 @@ using namespace vkcompute;
       utils::GPUMemoryLayout::TENSOR_WIDTH_PACKED,  \
       allocate_memory);
 
-#define DEFINE_STAGING_BUFFER_AND_RECORD_TO_GPU_FOR(tensor) \
-  api::StorageBuffer staging_buffer_##tensor(               \
-      api::context(), vkapi::kFloat, tensor.gpu_numel());   \
-  record_nchw_to_image_op(                                  \
+#define DEFINE_STAGING_BUFFER_AND_RECORD_TO_GPU_FOR(tensor)          \
+  api::StorageBuffer staging_buffer_##tensor(                        \
+      api::context(), vkapi::kFloat, tensor.staging_buffer_numel()); \
+  record_nchw_to_image_op(                                           \
       api::context(), staging_buffer_##tensor.buffer(), tensor);
 
-#define DEFINE_STAGING_BUFFER_AND_RECORD_FROM_GPU_FOR(tensor) \
-  api::StorageBuffer staging_buffer_##tensor(                 \
-      api::context(), vkapi::kFloat, tensor.gpu_numel());     \
-  record_image_to_nchw_op(                                    \
+#define DEFINE_STAGING_BUFFER_AND_RECORD_FROM_GPU_FOR(tensor)        \
+  api::StorageBuffer staging_buffer_##tensor(                        \
+      api::context(), vkapi::kFloat, tensor.staging_buffer_numel()); \
+  record_image_to_nchw_op(                                           \
       api::context(), tensor, staging_buffer_##tensor.buffer());
 
 #define CHECK_VALUE(data, idx, expected)                          \
@@ -82,6 +82,11 @@ void record_image_to_nchw_op(
     api::vTensor& v_src,
     vkapi::VulkanBuffer& dst_buffer);
 
+void record_int8_image_to_nchw_noint8_op(
+    api::Context* const context,
+    api::vTensor& v_src,
+    api::StorageBuffer& dst_buffer);
+
 void record_conv2d_prepack_weights_op(
     api::Context* const context,
     vkapi::VulkanBuffer& src_buffer,
@@ -110,6 +115,12 @@ void record_scalar_add_buffer(
     api::vTensor& v_ten,
     float offset);
 
+void record_reference_matmul(
+    api::Context* context,
+    api::vTensor& out,
+    api::vTensor& mat1,
+    api::vTensor& mat2);
+
 //
 // Input & Output Utilities
 //
@@ -128,6 +139,11 @@ void fill_vtensor(api::vTensor& vten, std::vector<float>& data);
 
 void fill_vtensor(api::vTensor& vten, float val, bool iota = false);
 
+std::vector<float> create_random_float_buffer(
+    const size_t numel,
+    const float min = 0,
+    const float max = 1);
+
 void fill_vtensor(
     ComputeGraph& graph,
     const IOValueRef idx,
@@ -137,7 +153,7 @@ void fill_vtensor(
 void extract_vtensor(api::vTensor& vten, std::vector<float>& data);
 
 inline std::vector<float> extract_vtensor(api::vTensor& vten) {
-  std::vector<float> data_out(vten.gpu_numel());
+  std::vector<float> data_out(vten.staging_buffer_numel());
   extract_vtensor(vten, data_out);
   return data_out;
 }
@@ -226,3 +242,9 @@ void print_vector(
   }
   std::cout << std::endl;
 }
+
+//
+// Misc. Utilities
+//
+
+bool check_close(float a, float b, float atol = 1e-4, float rtol = 1e-5);

@@ -163,6 +163,31 @@ class Version:
             fp.write("\n".join(lines) + "\n")
 
 
+# The build type is determined by the DEBUG environment variable. If DEBUG is
+# set to a non-empty value, the build type is Debug. Otherwise, the build type
+# is Release.
+def get_build_type(is_debug=None) -> str:
+    debug = int(os.environ.get("DEBUG", 0)) if is_debug is None else is_debug
+    cfg = "Debug" if debug else "Release"
+    return cfg
+
+
+def get_dynamic_lib_name(name: str) -> str:
+    if platform.system() == "Windows":
+        return name + ".dll"
+    elif platform.system() == "Darwin":
+        return "lib" + name + ".dylib"
+    else:
+        return "lib" + name + ".so"
+
+
+def get_executable_name(name: str) -> str:
+    if platform.system() == "Windows":
+        return name + ".exe"
+    else:
+        return name
+
+
 class _BaseExtension(Extension):
     """A base class that maps an abstract source to an abstract destination."""
 
@@ -190,13 +215,21 @@ class _BaseExtension(Extension):
             installer: The InstallerBuildExt instance that is installing the
                 file.
         """
-        # TODO(dbort): share the cmake-out location with CustomBuild. Can get a
-        # handle with installer.get_finalized_command('build')
-        cmake_cache_dir: Path = Path().cwd() / installer.build_temp / "../cmake-out"
-
         print("##############################################")
         print("##############################################")
         print("jwjw: cmake_cache_dir: ", cmake_cache_dir)
+
+        # Share the cmake-out location with CustomBuild.
+        cmake_cache_dir = Path(installer.get_finalized_command("build").cmake_cache_dir)
+
+        cfg = get_build_type(installer.debug)
+
+        if os.name == "nt":
+            # Replace %BUILD_TYPE% with the current build type.
+            self.src = self.src.replace("%BUILD_TYPE%", cfg)
+        else:
+            # Remove %BUILD_TYPE% from the path.
+            self.src = self.src.replace("/%BUILD_TYPE%", "")
 
         # Construct the full source path, resolving globs. If there are no glob
         # pattern characters, this will just ensure that the source file exists.
@@ -217,17 +250,39 @@ class BuiltFile(_BaseExtension):
     `ext_modules`.
     """
 
-    def __init__(self, src: str, dst: str):
+    def __init__(
+        self,
+        src_dir: str,
+        src_name: str,
+        dst: str,
+        is_executable: bool = False,
+        is_dynamic_lib: bool = False,
+    ):
         """Initializes a BuiltFile.
 
         Args:
-            src: The path to the file to install, relative to the cmake-out
-                directory. May be an fnmatch-style glob that matches exactly one
-                file.
+            src_dir: The directory of the file to install, relative to the cmake-out
+                directory. A placeholder %BUILD_TYPE% will be replaced with the build
+                type for multi-config generators (like Visual Studio) where the build
+                output is in a subdirectory named after the build type. For single-
+                config generators (like Makefile Generators or Ninja), this placeholder
+                will be removed.
+            src_name: The name of the file to install
             dst: The path to install to, relative to the root of the pip
                 package. If dst ends in "/", it is treated as a directory.
                 Otherwise it is treated as a filename.
+            is_executable: If True, the file is an executable. This is used to
+                determine the destination filename for executable.
+            is_dynamic_lib: If True, the file is a dynamic library. This is used
+                to determine the destination filename for dynamic library.
         """
+        if is_executable and is_dynamic_lib:
+            raise ValueError("is_executable and is_dynamic_lib cannot be both True.")
+        if is_executable:
+            src_name = get_executable_name(src_name)
+        elif is_dynamic_lib:
+            src_name = get_dynamic_lib_name(src_name)
+        src = os.path.join(src_dir, src_name)
         # This is not a real extension, so use a unique name that doesn't look
         # like a module path. Some of setuptools's autodiscovery will look for
         # extension names with prefixes that match certain module paths.
@@ -368,12 +423,12 @@ class CustomBuildPy(build_py):
             ("schema/scalar_type.fbs", "exir/_serialize/scalar_type.fbs"),
             ("schema/program.fbs", "exir/_serialize/program.fbs"),
             (
-                "sdk/bundled_program/schema/bundled_program_schema.fbs",
-                "sdk/bundled_program/serialize/bundled_program_schema.fbs",
+                "devtools/bundled_program/schema/bundled_program_schema.fbs",
+                "devtools/bundled_program/serialize/bundled_program_schema.fbs",
             ),
             (
-                "sdk/bundled_program/schema/scalar_type.fbs",
-                "sdk/bundled_program/serialize/scalar_type.fbs",
+                "devtools/bundled_program/schema/scalar_type.fbs",
+                "devtools/bundled_program/serialize/scalar_type.fbs",
             ),
         ]
         for src, dst in src_to_dst:
@@ -414,6 +469,7 @@ class Buck2EnvironmentFixer(contextlib.AbstractContextManager):
                 log.info("temporarily unsetting HOME while running as root")
                 self.saved_env["HOME"] = os.environ.pop("HOME")
             return self
+
         return self
 
     def is_admin(self):
@@ -453,8 +509,7 @@ class CustomBuild(build):
     def run(self):
         self.dump_options()
 
-        debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
-        cfg = "Debug" if debug else "Release"
+        cfg = get_build_type(self.debug)
 
         # get_python_lib() typically returns the path to site-packages, where
         # all pip packages in the environment are installed.
@@ -510,8 +565,11 @@ class CustomBuild(build):
             cmake_args += [
                 "-DEXECUTORCH_BUILD_KERNELS_CUSTOM=ON",  # add llama sdpa ops to pybindings.
                 "-DEXECUTORCH_BUILD_KERNELS_CUSTOM_AOT=ON",
+                "-DEXECUTORCH_BUILD_KERNELS_QUANTIZED=ON",  # add quantized ops to pybindings.
+                "-DEXECUTORCH_BUILD_KERNELS_QUANTIZED_AOT=ON",
             ]
             build_args += ["--target", "custom_ops_aot_lib"]
+            build_args += ["--target", "quantized_ops_aot_lib"]
         # Allow adding extra cmake args through the environment. Used by some
         # tests and demos to expand the set of targets included in the pip
         # package.
@@ -525,6 +583,14 @@ class CustomBuild(build):
             build_args += [
                 item for item in os.environ["CMAKE_BUILD_ARGS"].split(" ") if item
             ]
+
+        # CMAKE_BUILD_TYPE variable specifies the build type (configuration) for
+        # single-configuration generators (e.g., Makefile Generators or Ninja).
+        # For multi-config generators (like Visual Studio), CMAKE_BUILD_TYPE
+        # isn’t directly applicable.
+        # During the build step, --config specifies the configuration to build
+        # for multi-config generators.
+        build_args += ["--config", cfg]
 
         # Put the cmake cache under the temp directory, like
         # "pip-out/temp.<plat>/cmake-out".
@@ -597,6 +663,8 @@ class CustomBuild(build):
             "build/pip_data_bin_init.py.in",
             os.path.join(bin_dir, "__init__.py"),
         )
+        # Share the cmake-out location with _BaseExtension.
+        self.cmake_cache_dir = cmake_cache_dir
 
         # Finally, run the underlying subcommands like build_py, build_ext.
         print("repo_root22", repo_root)
@@ -615,11 +683,15 @@ class CustomBuild(build):
 
 def get_ext_modules() -> List[Extension]:
     """Returns the set of extension modules to build."""
-
     ext_modules = []
     if ShouldBuild.flatc():
         ext_modules.append(
-            BuiltFile("third-party/flatbuffers/Debug/flatc.exe", "executorch/data/bin/")
+            BuiltFile(
+                src_dir="third-party/flatbuffers/%BUILD_TYPE%/",
+                src_name="flatc",
+                dst="executorch/data/bin/",
+                is_executable=True,
+            )
         )
 
     if ShouldBuild.pybindings():
@@ -633,10 +705,20 @@ def get_ext_modules() -> List[Extension]:
         )
     if ShouldBuild.llama_custom_ops():
         ext_modules.append(
-            # Install the prebuilt library for custom ops used in llama.
             BuiltFile(
-                "extension/llm/custom_ops/Debug/custom_ops_aot_lib.dll",
-                "executorch/extension/llm/custom_ops",
+                src_dir="extension/llm/custom_ops/%BUILD_TYPE%/",
+                src_name="custom_ops_aot_lib",
+                dst="executorch/extension/llm/custom_ops",
+                is_dynamic_lib=True,
+            )
+        )
+        ext_modules.append(
+            # Install the prebuilt library for quantized ops required by custom ops.
+            BuiltFile(
+                src_dir="kernels/quantized/%BUILD_TYPE%/",
+                src_name="quantized_ops_aot_lib",
+                dst="executorch/kernels/quantized/",
+                is_dynamic_lib=True,
             )
         )
 
@@ -660,9 +742,10 @@ setup(
         "executorch/examples/models": "examples/models",
         "executorch/exir": "exir",
         "executorch/extension": "extension",
+        "executorch/kernels/quantized": "kernels/quantized",
         "executorch/schema": "schema",
-        "executorch/sdk": "sdk",
-        "executorch/sdk/bundled_program": "sdk/bundled_program",
+        "executorch/devtools": "devtools",
+        "executorch/devtools/bundled_program": "devtools/bundled_program",
         "executorch/util": "util",
         # Note: This will install a top-level module called "serializer",
         # which seems too generic and might conflict with other pip packages.

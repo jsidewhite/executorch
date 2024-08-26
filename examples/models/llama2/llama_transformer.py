@@ -96,6 +96,10 @@ class ModelArgs:
     use_sdpa_with_kv_cache_op: bool = (
         False  # Use custom sdpa op that updates kv cache in-place
     )
+    # Generate logits for all inputs. When it's True, it would take big memory usage
+    # at runtime. Enable it only necessary (e.g., use perplexity tools that requires
+    # logits for all input tokens.)
+    generate_full_logits: bool = False
     enable_dynamic_shape: bool = False  # export model with dynamic shape support
     use_hf_rope: bool = False  # Use HuggingFace's RoPE implementation
     rope_theta: Optional[float] = (
@@ -131,18 +135,6 @@ class ModelArgs:
             self.hidden_dim = find_multiple(hidden_dim, multiple_of)
 
 
-def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
-    """torch.repeat_interleave(x, dim=2, repeats=n_rep)"""
-    bs, slen, n_kv_heads, head_dim = x.shape
-    if n_rep == 1:
-        return x
-    return (
-        x[:, :, :, None, :]
-        .expand(bs, slen, n_kv_heads, n_rep, head_dim)
-        .reshape(bs, slen, n_kv_heads * n_rep, head_dim)
-    )
-
-
 class KVCache(nn.Module):
     def __init__(
         self,
@@ -161,6 +153,9 @@ class KVCache(nn.Module):
         else:
             cache_shape = (max_batch_size, max_seq_length, n_heads, head_dim)
 
+        self.max_batch_size = max_batch_size
+        self.n_heads = n_heads
+        self.head_dim = head_dim
         self.transpose_cache = transpose_cache
         self.enable_dynamic_shape = enable_dynamic_shape
         self.register_buffer(
@@ -451,6 +446,7 @@ class Transformer(nn.Module):
         self.norm = RMSNorm(params.dim, eps=params.norm_eps)
         self.output = nn.Linear(params.dim, params.vocab_size, bias=False)
         self.use_kv_cache = params.use_kv_cache
+        self.generate_full_logits = params.generate_full_logits
         self.max_seq_len = params.max_seq_len
         if params.use_hf_rope:
             self.precompute_freqs_cis = hf_precompute_freqs_cis
@@ -520,6 +516,10 @@ class Transformer(nn.Module):
                 freqs_sin,
                 input_pos,
             )
+
+        if not self.generate_full_logits:
+            # Only the last logit is used for the new generated token
+            h = h[:, -1, :]
 
         h = self.norm(h)
 

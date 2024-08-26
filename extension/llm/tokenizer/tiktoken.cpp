@@ -30,8 +30,12 @@
 #include <fstream>
 #include <limits>
 
-namespace torch {
-namespace executor {
+using ::executorch::runtime::Error;
+using ::executorch::runtime::Result;
+
+namespace executorch {
+namespace extension {
+namespace llm {
 
 // ------------------------------Util start------------------------------------
 
@@ -359,8 +363,14 @@ Error Tiktoken::load(const std::string& path) {
   _special_token_decoder = _build_decoder(_special_token_encoder);
 
   _regex = _create_regex(_pattern);
+  // Warmup re2 as it is slow on the first run, void the return value as it's
+  // not needed Refer to
+  // https://github.com/google/re2/blob/6dcd83d60f7944926bfd308cc13979fc53dd69ca/re2/fuzzing/re2_fuzzer.cc#L136-L141
+  (void)_regex->ReverseProgramSize();
 
   _special_token_regex = _build_special_token_regex(_special_token_encoder);
+  // Same as above, warm up re2
+  (void)_special_token_regex->ReverseProgramSize();
 
   // initialize vocab_size, bos_tok, eos_tok
   vocab_size_ = _encoder.size() + _special_token_encoder.size();
@@ -409,5 +419,6 @@ Result<std::string> Tiktoken::decode(uint64_t prev, uint64_t cur) const {
 }
 // -------------------------public method end-------------------------------
 
-} // namespace executor
-} // namespace torch
+} // namespace llm
+} // namespace extension
+} // namespace executorch

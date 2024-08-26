@@ -22,6 +22,8 @@ import pkg_resources
 
 import torch
 
+from executorch.devtools.etrecord import generate_etrecord
+
 from executorch.examples.models.llama2.llama_transformer import ModelArgs
 
 from executorch.extension.llm.export.builder import DType, LLMEdgeManager
@@ -40,8 +42,6 @@ from executorch.extension.llm.export.quantizer_lib import (
     get_pt2e_quantizers,
     get_qnn_quantizer,
 )
-
-from executorch.sdk.etrecord import generate_etrecord
 from executorch.util.activation_memory_profiler import generate_memory_trace
 
 from ..model_factory import EagerModelFactory
@@ -52,7 +52,9 @@ from .source_transformation.quantize import (
 from .source_transformation.rope import materialze_broadcast_of_rope_freq_cis
 from .source_transformation.sdpa import (
     replace_causal_mask,
+    replace_kv_cache_with_simple_kv_cache,
     replace_sdpa_with_custom_op,
+    replace_sdpa_with_flex_sdpa,
     replace_sdpa_with_simple_sdpa,
 )
 
@@ -294,6 +296,13 @@ def build_args_parser() -> argparse.ArgumentParser:
         help="Generate the ETRecord debug artifact.",
     )
 
+    parser.add_argument(
+        "--generate_full_logits",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Generate logits for all inputs.",
+    )
     return parser
 
 
@@ -385,7 +394,12 @@ def _prepare_for_llama_export(modelname: str, args) -> LLMEdgeManager:
         transforms.append(replace_sdpa_with_custom_op)
 
     if args.use_kv_cache:
-        if args.qnn or args.coreml or args.mps:
+        if args.qnn:
+            transforms.append(replace_kv_cache_with_simple_kv_cache)
+            transforms.append(replace_sdpa_with_flex_sdpa)
+            transforms.append(replace_causal_mask)
+
+        elif args.coreml or args.mps:
             # Currently qnn/coreml/mps doesn't support sdpa op, use the simpler decomposition
             # to get free perf gain.
             transforms.append(replace_sdpa_with_simple_sdpa)
@@ -398,6 +412,7 @@ def _prepare_for_llama_export(modelname: str, args) -> LLMEdgeManager:
             params_path=params_path,
             use_kv_cache=args.use_kv_cache,
             use_sdpa_with_kv_cache=args.use_sdpa_with_kv_cache,
+            generate_full_logits=args.generate_full_logits,
             weight_type=weight_type,
             enable_dynamic_shape=args.enable_dynamic_shape,
             verbose=args.verbose,
@@ -546,27 +561,21 @@ def _export_llama(modelname, args) -> LLMEdgeManager:  # noqa: C901
 
 def _load_llama_model_metadata(
     weight_type: WeightType,
-    dtype: DType,
     use_kv_cache: bool,
     use_sdpa_with_kv_cache: bool,
     enable_dynamic_shape: bool,
-    modelArgs: ModelArgs,
+    model_args: ModelArgs,
     metadata_str: Optional[str] = None,
 ):
     is_fairseq2 = weight_type == WeightType.FAIRSEQ2
     metadata = {
         "append_eos_to_prompt": is_fairseq2,  # For language llama, tell the runtime to always append EOS token(s) to prompt.
         "get_bos_id": 3 if is_fairseq2 else 1,
-        "get_dtype": 5 if dtype == DType.fp16 else 6,
-        "get_eos_id": 3 if is_fairseq2 else 2,
-        "get_head_dim": modelArgs.dim // modelArgs.n_heads,
-        "get_max_batch_size": modelArgs.max_batch_size,
-        "get_max_seq_len": modelArgs.max_seq_len,
+        "get_eos_ids": [3] if is_fairseq2 else [2],
+        "get_max_seq_len": model_args.max_seq_len,
         "get_n_bos": 1,
         "get_n_eos": 2 if is_fairseq2 else 1,
-        "get_n_kv_heads": modelArgs.n_kv_heads,
-        "get_n_layers": modelArgs.n_layers,
-        "get_vocab_size": modelArgs.vocab_size,
+        "get_vocab_size": model_args.vocab_size,
         "use_kv_cache": use_kv_cache,
         "use_sdpa_with_kv_cache": use_sdpa_with_kv_cache,
         "enable_dynamic_shape": enable_dynamic_shape,
@@ -589,6 +598,7 @@ def _load_llama_model(
     params_path: str,
     use_kv_cache: bool = False,
     use_sdpa_with_kv_cache: bool = False,
+    generate_full_logits: bool = False,
     weight_type: WeightType = WeightType.LLAMA,
     enable_dynamic_shape: bool = False,
     verbose: bool = False,
@@ -615,6 +625,7 @@ def _load_llama_model(
         params=params_path,
         use_kv_cache=use_kv_cache,
         use_sdpa_with_kv_cache=use_sdpa_with_kv_cache,
+        generate_full_logits=generate_full_logits,
         fairseq2=weight_type == WeightType.FAIRSEQ2,
         max_seq_len=max_seq_len,
         enable_dynamic_shape=enable_dynamic_shape,
@@ -648,7 +659,6 @@ def _load_llama_model(
         verbose=verbose,
         metadata=_load_llama_model_metadata(
             weight_type,
-            dtype,
             use_kv_cache,
             use_sdpa_with_kv_cache,
             enable_dynamic_shape,

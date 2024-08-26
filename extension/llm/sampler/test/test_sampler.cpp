@@ -6,20 +6,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <executorch/examples/models/llama2/sampler/sampler.h>
+#include <executorch/extension/llm/sampler/sampler.h>
 
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 
 using namespace ::testing;
+using ::executorch::extension::llm::Sampler;
 
-namespace torch {
-namespace executor {
-
-class SamplerTest : public Test {};
-
-TEST_F(SamplerTest, TestArgMax) {
-  torch::executor::Sampler sampler{
+TEST(SamplerTest, TestArgMax) {
+  Sampler sampler{
       /*vocab_size*/ 32000,
       /*temperature*/ 0.0f,
       /*topp*/ 0.9f,
@@ -31,8 +27,8 @@ TEST_F(SamplerTest, TestArgMax) {
   EXPECT_EQ(sampler.sample(input.data_ptr<float>()), 396);
 }
 
-TEST_F(SamplerTest, TestArgMaxWithFP16) {
-  torch::executor::Sampler sampler{
+TEST(SamplerTest, TestArgMaxWithFP16) {
+  Sampler sampler{
       /*vocab_size*/ 32000,
       /*temperature*/ 0.0f,
       /*topp*/ 0.9f,
@@ -43,6 +39,3 @@ TEST_F(SamplerTest, TestArgMaxWithFP16) {
   input[0][0][396] = 1.0f;
   EXPECT_EQ(sampler.sample(input.data_ptr<c10::Half>()), 396);
 }
-
-} // namespace executor
-} // namespace torch

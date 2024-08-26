@@ -17,6 +17,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <executorch/devtools/bundled_program/bundled_program.h>
+#include <executorch/devtools/bundled_program/schema/bundled_program_schema_generated.h>
+#include <executorch/devtools/etdump/etdump_flatcc.h>
 #include <executorch/extension/data_loader/buffer_data_loader.h>
 #include <executorch/extension/data_loader/mmap_data_loader.h>
 #include <executorch/extension/memory_allocator/malloc_memory_allocator.h>
@@ -28,9 +31,6 @@
 #include <executorch/runtime/platform/platform.h>
 #include <executorch/runtime/platform/profiler.h>
 #include <executorch/runtime/platform/runtime.h>
-#include <executorch/sdk/bundled_program/bundled_program.h>
-#include <executorch/sdk/bundled_program/schema/bundled_program_schema_generated.h>
-#include <executorch/sdk/etdump/etdump_flatcc.h>
 #include <executorch/util/read_file.h>
 
 #include <ATen/Functions.h>
@@ -64,16 +64,47 @@ void et_pal_emit_log_message(
     et_timestamp_t timestamp,
     et_pal_log_level_t level,
     const char* filename,
-    __ET_UNUSED const char* function,
+    ET_UNUSED const char* function,
     size_t line,
     const char* message,
-    __ET_UNUSED size_t length) {
+    ET_UNUSED size_t length) {
   std::cerr << "[" << filename << ":" << line << "] " << message << std::endl;
 }
 
 namespace py = pybind11;
-namespace torch {
-namespace executor {
+using ::executorch::extension::BufferDataLoader;
+using ::executorch::extension::MallocMemoryAllocator;
+using ::executorch::extension::MmapDataLoader;
+using ::executorch::runtime::ArrayRef;
+using ::executorch::runtime::DataLoader;
+using ::executorch::runtime::Error;
+using ::executorch::runtime::EValue;
+using ::executorch::runtime::EventTracerDebugLogLevel;
+using ::executorch::runtime::get_kernels;
+using ::executorch::runtime::HierarchicalAllocator;
+using ::executorch::runtime::Kernel;
+using ::executorch::runtime::MemoryAllocator;
+using ::executorch::runtime::MemoryManager;
+using ::executorch::runtime::Method;
+using ::executorch::runtime::prof_result_t;
+using ::executorch::runtime::Program;
+using ::executorch::runtime::Result;
+using ::executorch::runtime::Span;
+using ::executorch::runtime::Tag;
+using torch::executor::etdump_result;
+using torch::executor::ETDumpGen;
+using torch::executor::bundled_program::LoadBundledInput;
+using torch::executor::bundled_program::VerifyResultWithBundledExpectedOutput;
+
+#ifndef USE_ATEN_LIB
+using ::executorch::extension::alias_attensor_to_etensor;
+using ::executorch::extension::alias_etensor_to_attensor;
+using ::executorch::extension::torch_to_executorch_scalar_type;
+#endif // !USE_ATEN_LIB
+
+namespace executorch {
+namespace extension {
+namespace pybindings {
 
 namespace {
 
@@ -95,9 +126,33 @@ void write_data_to_file(const std::string& path, void* buf, size_t size) {
   }
 }
 
-using util::BufferDataLoader;
-using util::MallocMemoryAllocator;
-using util::MmapDataLoader;
+void setup_output_storage(
+    Method& method,
+    const std::vector<Span<uint8_t>>& output_storages) {
+  if (output_storages.size() != method.outputs_size()) {
+    THROW_IF_ERROR(
+        Error(),
+        "number of output storages %zu does not match number of outputs %zu",
+        output_storages.size(),
+        method.outputs_size());
+  }
+  for (size_t i = 0; i < output_storages.size(); ++i) {
+    if (output_storages[i].size() == 0) {
+      // Skip empty output storages, this would happen for non-tensor outputs.
+      continue;
+    }
+    Error output_status = method.set_output_data_ptr(
+        output_storages[i].data(), output_storages[i].size(), i);
+    // InvalidState can be the status if outputs are already memory planned.
+    // That's fine and we don't need to alert the user to that error.
+    if (output_status != Error::Ok && output_status != Error::InvalidState) {
+      ET_LOG(
+          Error,
+          "Cannot set_output_data_ptr(): 0x%" PRIx32,
+          static_cast<uint32_t>(output_status));
+    }
+  }
+}
 
 class Module final {
  public:
@@ -108,7 +163,7 @@ class Module final {
       : loader_(std::move(loader)),
         event_tracer_(std::move(tracer)),
         debug_buffer_size_(debug_buffer_size) {
-    runtime_init();
+    ::executorch::runtime::runtime_init();
     Result<Program> program = Program::load(
         loader_.get(), Program::Verification::InternalConsistency);
     THROW_IF_ERROR(
@@ -209,26 +264,7 @@ class Module final {
         c10::autograd_dispatch_keyset);
 #endif
     if (output_storages) {
-      if (output_storages->size() != method->outputs_size()) {
-        THROW_IF_ERROR(
-            Error(),
-            "number of output storages %zu does not match number of outputs %zu",
-            output_storages->size(),
-            method->outputs_size());
-      }
-      for (size_t i = 0; i < output_storages->size(); ++i) {
-        Error output_status = method->set_output_data_ptr(
-            (*output_storages)[i].data(), (*output_storages)[i].size(), i);
-        // InvalidState can be the status if outputs are already memory planned.
-        // That's fine and we don't need to alert the user to that error.
-        if (output_status != Error::Ok &&
-            output_status != Error::InvalidState) {
-          ET_LOG(
-              Error,
-              "Cannot set_output_data_ptr(): 0x%" PRIx32,
-              static_cast<uint32_t>(output_status));
-        }
-      }
+      setup_output_storage(*method, *output_storages);
     }
     Error execute_status = method->execute();
     THROW_IF_ERROR(
@@ -236,6 +272,11 @@ class Module final {
         "method->execute() failed with error 0x%" PRIx32,
         static_cast<uint32_t>(execute_status));
     // process outputs
+    return get_outputs(method_name);
+  }
+
+  std::vector<EValue> get_outputs(const std::string& method_name) {
+    auto& method = methods_[method_name];
     std::vector<EValue> result(method->outputs_size());
 
     Error get_outputs_status =
@@ -332,12 +373,12 @@ class Module final {
   size_t debug_buffer_size_;
 };
 
-inline std::unique_ptr<Module> load_from_buffer(
+inline std::unique_ptr<Module> load_module_from_buffer(
     const void* ptr,
     size_t ptr_len,
     bool enable_etdump,
     size_t debug_buffer_size) {
-  EXECUTORCH_SCOPE_PROF("load_from_buffer");
+  EXECUTORCH_SCOPE_PROF("load_module_from_buffer");
   auto loader = std::make_unique<BufferDataLoader>(ptr, ptr_len);
   return std::make_unique<Module>(
       std::move(loader),
@@ -345,11 +386,11 @@ inline std::unique_ptr<Module> load_from_buffer(
       debug_buffer_size);
 }
 
-inline std::unique_ptr<Module> load_from_file(
+inline std::unique_ptr<Module> load_module_from_file(
     const std::string& path,
     bool enable_etdump,
     size_t debug_buffer_size) {
-  EXECUTORCH_SCOPE_PROF("load_from_file");
+  EXECUTORCH_SCOPE_PROF("load_module_from_file");
 
   Result<MmapDataLoader> res = MmapDataLoader::from(
       path.c_str(), MmapDataLoader::MlockConfig::UseMlockIgnoreErrors);
@@ -414,7 +455,7 @@ struct PyModule final {
       const py::bytes& buffer,
       bool enable_etdump,
       size_t debug_buffer_size = 0)
-      : module_(torch::executor::load_from_buffer(
+      : module_(load_module_from_buffer(
             buffer.cast<std::string_view>().data(),
             py::len(buffer),
             enable_etdump,
@@ -425,7 +466,7 @@ struct PyModule final {
       size_t ptr_len,
       bool enable_etdump,
       size_t debug_buffer_size = 0)
-      : module_(torch::executor::load_from_buffer(
+      : module_(load_module_from_buffer(
             ptr,
             ptr_len,
             enable_etdump,
@@ -435,10 +476,8 @@ struct PyModule final {
       const std::string& path,
       bool enable_etdump,
       size_t debug_buffer_size = 0)
-      : module_(torch::executor::load_from_file(
-            path,
-            enable_etdump,
-            debug_buffer_size)) {}
+      : module_(load_module_from_file(path, enable_etdump, debug_buffer_size)) {
+  }
 
   PyModule(const PyModule&) = delete;
   PyModule& operator=(const PyModule&) = delete;
@@ -511,8 +550,8 @@ struct PyModule final {
         EValue evalue(at_tensor);
 #else
         // convert at::Tensor to torch::executor::Tensor
-        auto type = torch::util::torchToExecuTorchScalarType(
-            at_tensor.options().dtype());
+        auto type =
+            torch_to_executorch_scalar_type(at_tensor.options().dtype());
         size_t dim = at_tensor.dim();
         // cant directly alias at::Tensor sizes and strides due to int64 vs
         // int32 typing conflict
@@ -537,7 +576,7 @@ struct PyModule final {
 
         torch::executor::Tensor temp =
             torch::executor::Tensor(&input_tensors.back());
-        torch::util::alias_etensor_to_attensor(at_tensor, temp);
+        alias_etensor_to_attensor(at_tensor, temp);
         EValue evalue(temp);
 #endif
 
@@ -556,62 +595,17 @@ struct PyModule final {
 
     const auto& method = module_->get_method(method_name);
     const auto num_outputs = method.outputs_size();
-    // These output storages will not be used if the ExecuTorch program already
-    // pre-allocated output space. That is represented by an error from
-    // set_output_data_ptr.
-    std::vector<std::unique_ptr<uint8_t[]>> output_storages(num_outputs);
+    output_storages_ = make_output_storages(method);
     std::vector<Span<uint8_t>> output_storage_spans(num_outputs);
-    for (size_t i = 0; i < num_outputs; ++i) {
-      const auto& output_tensor_meta =
-          method.method_meta().output_tensor_meta(i);
-      if (!output_tensor_meta.ok()) {
-        // If the output isn't a tensor it won't have a tensor meta.
-        ET_LOG(
-            Info,
-            "Tensor meta doesn't exist for output %zu, error is 0x%" PRIx32
-            ", skipping allocating storage",
-            i,
-            static_cast<uint32_t>(output_tensor_meta.error()));
-        output_storage_spans[i] = Span<uint8_t>();
-        continue;
-      }
-      const size_t output_size = output_tensor_meta.get().nbytes();
-      std::unique_ptr<uint8_t[]> output(new uint8_t[output_size]);
-      output_storage_spans[i] = Span<uint8_t>(output.get(), output_size);
-      output_storages[i] = std::move(output);
+    for (int i = 0; i < output_storages_.size(); ++i) {
+      output_storage_spans[i] =
+          Span<uint8_t>(output_storages_[i].data(), output_storages_[i].size());
     }
     auto outputs =
         module_->run_method(method_name, cpp_inputs, output_storage_spans);
 
     // Retrieve outputs
-    const auto outputs_size = outputs.size();
-    py::list list(outputs_size);
-    for (size_t i = 0; i < outputs_size; ++i) {
-      auto& v = outputs[i];
-      if (Tag::None == v.tag) {
-        list[i] = py::none();
-      } else if (Tag::Int == v.tag) {
-        list[i] = py::cast(v.toInt());
-      } else if (Tag::Double == v.tag) {
-        list[i] = py::cast(v.toDouble());
-      } else if (Tag::Bool == v.tag) {
-        list[i] = py::cast(v.toBool());
-      } else if (Tag::String == v.tag) {
-        list[i] = py::cast(std::string(v.toString().data()));
-      } else if (Tag::Tensor == v.tag) {
-#ifdef USE_ATEN_LIB
-        // Clone so the outputs in python do not share a lifetime with the
-        // module object
-        list[i] = py::cast(v.toTensor().clone());
-#else
-        list[i] = py::cast(
-            torch::util::alias_attensor_to_etensor(v.toTensor()).clone());
-#endif
-      } else {
-        ET_ASSERT_UNREACHABLE_MSG("Invalid model output type");
-      }
-    }
-    return list;
+    return get_outputs_as_py_list(outputs);
   }
 
   py::list forward(const py::sequence& inputs) {
@@ -659,10 +653,10 @@ struct PyModule final {
 
   void load_bundled_input(
       PyBundledModule& m,
-      const string method_name,
+      const std::string method_name,
       size_t testset_idx) {
     const void* bundled_program_ptr = m.get_bundled_program_ptr();
-    Error status = bundled_program::LoadBundledInput(
+    Error status = LoadBundledInput(
         module_->get_method(method_name), bundled_program_ptr, testset_idx);
     THROW_IF_ERROR(
         status,
@@ -670,35 +664,110 @@ struct PyModule final {
         static_cast<uint32_t>(status));
   }
 
-  void verify_result_with_bundled_expected_output(
+  py::list verify_result_with_bundled_expected_output(
       PyBundledModule& m,
-      const string method_name,
+      const std::string method_name,
       size_t testset_idx,
       double rtol = 1e-5,
       double atol = 1e-8) {
     const void* bundled_program_ptr = m.get_bundled_program_ptr();
-    Error status = bundled_program::VerifyResultWithBundledExpectedOutput(
-        module_->get_method(method_name),
-        bundled_program_ptr,
-        testset_idx,
-        rtol,
-        atol);
+    auto& method = module_->get_method(method_name);
+    Error status = LoadBundledInput(method, bundled_program_ptr, testset_idx);
+    THROW_IF_ERROR(
+        status,
+        "LoadBundledInput failed with status %" PRIu32,
+        static_cast<uint32_t>(status));
+    py::list outputs = plan_execute(method_name);
+    status = VerifyResultWithBundledExpectedOutput(
+        method, bundled_program_ptr, testset_idx, rtol, atol);
     THROW_IF_ERROR(
         status,
         "Result verification failed with status %" PRIu32,
         static_cast<uint32_t>(status));
+    return outputs;
   }
 
-  void plan_execute(const string method_name) {
-    auto status = module_->get_method(method_name).execute();
+  py::list plan_execute(const std::string method_name) {
+    auto& method = module_->get_method(method_name);
+    // Need to pre-allocate space for outputs just like in run_method.
+    const auto num_outputs = method.outputs_size();
+    output_storages_ = make_output_storages(method);
+    std::vector<Span<uint8_t>> output_storage_spans(num_outputs);
+    for (int i = 0; i < output_storages_.size(); ++i) {
+      output_storage_spans[i] =
+          Span<uint8_t>(output_storages_[i].data(), output_storages_[i].size());
+    }
+    setup_output_storage(method, output_storage_spans);
+    auto status = method.execute();
     THROW_IF_ERROR(
         status,
         "executing execution plan for method 'forward' failed with error: 0x%" PRIx32,
         static_cast<uint32_t>(status));
+    const auto outputs = module_->get_outputs(method_name);
+    return get_outputs_as_py_list(outputs);
+  }
+
+  py::list get_outputs_as_py_list(const std::vector<EValue>& outputs) {
+    const auto outputs_size = outputs.size();
+    py::list list(outputs_size);
+    for (size_t i = 0; i < outputs_size; ++i) {
+      auto& v = outputs[i];
+      if (Tag::None == v.tag) {
+        list[i] = py::none();
+      } else if (Tag::Int == v.tag) {
+        list[i] = py::cast(v.toInt());
+      } else if (Tag::Double == v.tag) {
+        list[i] = py::cast(v.toDouble());
+      } else if (Tag::Bool == v.tag) {
+        list[i] = py::cast(v.toBool());
+      } else if (Tag::String == v.tag) {
+        list[i] = py::cast(std::string(v.toString().data()));
+      } else if (Tag::Tensor == v.tag) {
+#ifdef USE_ATEN_LIB
+        // Clone so the outputs in python do not share a lifetime with the
+        // module object
+        list[i] = py::cast(v.toTensor().clone());
+#else
+        list[i] = py::cast(alias_attensor_to_etensor(v.toTensor()).clone());
+#endif
+      } else {
+        ET_ASSERT_UNREACHABLE_MSG("Invalid model output type");
+      }
+    }
+    return list;
   }
 
  private:
   std::unique_ptr<Module> module_;
+  // Need to keep-alive output storages until they can be compared in case of
+  // bundled programs.
+  std::vector<std::vector<uint8_t>> output_storages_;
+
+  std::vector<std::vector<uint8_t>> make_output_storages(const Method& method) {
+    const auto num_outputs = method.outputs_size();
+    // These output storages will not be used if the ExecuTorch program already
+    // pre-allocated output space. That is represented by an error from
+    // set_output_data_ptr.
+    std::vector<std::vector<uint8_t>> output_storages(num_outputs);
+    for (size_t i = 0; i < num_outputs; ++i) {
+      const auto& output_tensor_meta =
+          method.method_meta().output_tensor_meta(i);
+      if (!output_tensor_meta.ok()) {
+        // If the output isn't a tensor it won't have a tensor meta.
+        ET_LOG(
+            Error,
+            "Tensor meta doesn't exist for output %zu, error is 0x%" PRIx32
+            ", skipping allocating storage",
+            i,
+            static_cast<uint32_t>(output_tensor_meta.error()));
+        output_storages[i] = std::vector<uint8_t>();
+        continue;
+      }
+      const size_t output_size = output_tensor_meta.get().nbytes();
+      output_storages[i] = std::vector<uint8_t>(output_size);
+    }
+    return output_storages;
+  }
 };
 
 void create_profile_block(const std::string& name) {
@@ -798,5 +867,6 @@ PYBIND11_MODULE(EXECUTORCH_PYTHON_MODULE_NAME, m) {
   py::class_<PyBundledModule>(m, "BundledModule");
 }
 
-} // namespace executor
-} // namespace torch
+} // namespace pybindings
+} // namespace extension
+} // namespace executorch

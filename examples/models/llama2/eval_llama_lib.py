@@ -20,7 +20,7 @@ from executorch.extension.llm.export import LLMEdgeManager
 from executorch.extension.llm.tokenizer.tokenizer import (
     Tokenizer as SentencePieceTokenizer,
 )
-
+from executorch.extension.llm.tokenizer.utils import get_tokenizer
 from lm_eval.api.model import LM
 
 from .export_llama_lib import (
@@ -46,6 +46,15 @@ class ETPybindEvalWrapper(EagerEvalWrapper):
 
         from executorch.extension.pybindings.portable_lib import _load_for_executorch
 
+        # Load custom ops and quantized ops.
+        from executorch.extension.pybindings import portable_lib  # noqa # usort: skip
+
+        # Note: import this after portable_lib
+        from executorch.extension.llm.custom_ops import (  # noqa
+            sdpa_with_kv_cache,  # usort: skip
+        )
+        from executorch.kernels import quantized  # noqa
+
         self._et_model = _load_for_executorch(self._model)
         self._use_kv_cache = self._et_model.run_method("use_kv_cache")[0]
 
@@ -54,12 +63,11 @@ class ETPybindEvalWrapper(EagerEvalWrapper):
         # inps: Tensor of shape (1, max_seq_len - 1)
         # logits: Tensor of shape (1, max_seq_len - 1, vocab_size)
         if self._use_kv_cache:
-            result_logits = []
-            for pos in range(self._max_seq_length):
-                pos_tensor = torch.tensor([pos], dtype=torch.int64)
-                logits = self._et_model.forward((inps[:, pos : pos + 1], pos_tensor))
-                result_logits.append(logits[0])
-            return torch.cat(result_logits, dim=1)
+            pos_tensor = torch.tensor([0], dtype=torch.int64, device=self.device)
+            result = self._et_model.forward(
+                (inps[:, : self._max_seq_length], pos_tensor)
+            )
+            return result[0]
         else:
             result = self._et_model.forward((inps,))
             return result[0]
@@ -103,11 +111,7 @@ def gen_eval_wrapper(
     Returns:
         eval_wrapper (LM): A wrapper interface for the lm-evaluation-harness library.
     """
-    try:
-        tokenizer = SentencePieceTokenizer(model_path=str(args.tokenizer_path))
-    except Exception:
-        print("Using Tiktokenizer")
-        tokenizer = Tiktoken(model_path=str(args.tokenizer_path))
+    tokenizer = get_tokenizer(args.tokenizer_path)
 
     # ExecuTorch Binary Evaluation
     if (model := args.pte) is not None:

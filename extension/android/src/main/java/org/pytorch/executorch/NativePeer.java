@@ -13,7 +13,7 @@ import com.facebook.jni.annotations.DoNotStrip;
 import com.facebook.soloader.nativeloader.NativeLoader;
 import java.util.Map;
 
-class NativePeer implements INativePeer {
+class NativePeer {
   static {
     // Loads libexecutorch.so from jniLibs
     NativeLoader.loadLibrary("executorch");
@@ -23,10 +23,10 @@ class NativePeer implements INativePeer {
 
   @DoNotStrip
   private static native HybridData initHybrid(
-      String moduleAbsolutePath, Map<String, String> extraFiles);
+      String moduleAbsolutePath, Map<String, String> extraFiles, int loadMode);
 
-  NativePeer(String moduleAbsolutePath, Map<String, String> extraFiles) {
-    mHybridData = initHybrid(moduleAbsolutePath, extraFiles);
+  NativePeer(String moduleAbsolutePath, Map<String, String> extraFiles, int loadMode) {
+    mHybridData = initHybrid(moduleAbsolutePath, extraFiles, loadMode);
   }
 
   public void resetNative() {

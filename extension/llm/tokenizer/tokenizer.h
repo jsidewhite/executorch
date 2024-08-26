@@ -6,34 +6,37 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-// A simple Byte Pair Encoding (BPE) Tokenizer. Note that the vanila tokenizer
-// model won't work with this class, it needs to go through tokenizer.py first.
 #pragma once
 
 #include <cinttypes>
+// patternlint-disable-next-line executorch-cpp-nostdinc
 #include <string>
+// patternlint-disable-next-line executorch-cpp-nostdinc
 #include <vector>
 
 #include <executorch/runtime/core/error.h>
 #include <executorch/runtime/core/result.h>
 
-namespace torch {
-namespace executor {
+namespace executorch {
+namespace extension {
+namespace llm {
 
+// A tokenizer interface.
 class Tokenizer {
  public:
   explicit Tokenizer() {}
   virtual ~Tokenizer() {}
 
-  virtual Error load(const std::string& tokenizer_path) = 0;
+  virtual ::executorch::runtime::Error load(
+      const std::string& tokenizer_path) = 0;
 
-  virtual Result<std::vector<uint64_t>>
+  virtual ::executorch::runtime::Result<std::vector<uint64_t>>
   encode(const std::string& input, int8_t bos, int8_t eos) const = 0;
 
-  Error decode_verify(uint64_t token) const {
+  ::executorch::runtime::Error decode_verify(uint64_t token) const {
     if (!initialized_) {
       ET_LOG(Error, "Tokenizer not initialized");
-      return Error::NotSupported;
+      return ::executorch::runtime::Error::NotSupported;
     }
     if (token >= vocab_size_) {
       ET_LOG(
@@ -41,13 +44,14 @@ class Tokenizer {
           "token  %" PRIu64 " is out side of vacab range %d",
           token,
           vocab_size_);
-      return Error::NotSupported;
+      return ::executorch::runtime::Error::NotSupported;
     }
-    return Error::Ok;
+    return ::executorch::runtime::Error::Ok;
   }
 
-  virtual Result<std::string> decode(uint64_t prev_token, uint64_t token)
-      const = 0;
+  virtual ::executorch::runtime::Result<std::string> decode(
+      uint64_t prev_token,
+      uint64_t token) const = 0;
 
   // getters
   int32_t vocab_size() const {
@@ -69,5 +73,14 @@ class Tokenizer {
   uint64_t eos_tok_ = 0;
 };
 
+} // namespace llm
+} // namespace extension
+} // namespace executorch
+
+namespace torch {
+namespace executor {
+// TODO(T197294990): Remove these deprecated aliases once all users have moved
+// to the new `::executorch` namespaces.
+using ::executorch::extension::llm::Tokenizer;
 } // namespace executor
 } // namespace torch

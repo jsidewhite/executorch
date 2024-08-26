@@ -14,7 +14,7 @@ import numpy as np
 import torch
 
 from executorch.backends.qualcomm.quantizer.quantizer import QuantDtype
-from executorch.examples.qualcomm.scripts.utils import (
+from executorch.examples.qualcomm.utils import (
     build_executorch_binary,
     make_output_dir,
     parse_skip_delegation_node,
@@ -28,7 +28,6 @@ def create_data_lists(voc07_path, data_size):
     Create lists of images, the bounding boxes and labels of the objects in these images, and save these to file.
 
     :param voc07_path: path to the 'VOC2007' folder
-    :param output_folder: folder where the JSONs must be saved
     """
     from utils import parse_annotation
 

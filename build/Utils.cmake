@@ -145,11 +145,11 @@ function(macos_kernel_link_options target_name)
   )
 endfunction()
 
-# Same as kernel_link_options but it's for Windows linker
-function(windowsos_kernel_link_options target_name)
+# Same as kernel_link_options but it's for MSVC linker
+function(msvc_kernel_link_options target_name)
   target_link_options(
-    ${target_name} INTERFACE "SHELL:LINKER:/WHOLEARCHIVE:$<TARGET_FILE:${target_name}> \
-    LINKER:--no-whole-archive"
+    ${target_name} INTERFACE
+    "SHELL:LINKER:/WHOLEARCHIVE:$<TARGET_FILE:${target_name}>"
   )
 endfunction()
 
@@ -158,8 +158,8 @@ endfunction()
 function(target_link_options_shared_lib target_name)
   if(APPLE)
     macos_kernel_link_options(${target_name})
-  elseif(__WINDOWS_MSVC)
-    windowsos_kernel_link_options(${target_name})
+  elseif(MSVC)
+    msvc_kernel_link_options(${target_name})
   else()
     kernel_link_options(${target_name})
   endif()

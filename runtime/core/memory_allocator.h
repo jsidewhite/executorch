@@ -18,8 +18,8 @@
 #include <executorch/runtime/platform/log.h>
 #include <executorch/runtime/platform/profiler.h>
 
-namespace torch {
-namespace executor {
+namespace executorch {
+namespace runtime {
 
 /**
  * A class that does simple allocation based on a size and returns the pointer
@@ -156,7 +156,7 @@ class MemoryAllocator {
     cur_ = begin_;
   }
 
-  void enable_profiling(__ET_UNUSED const char* name) {
+  void enable_profiling(ET_UNUSED const char* name) {
     prof_id_ = EXECUTORCH_TRACK_ALLOCATOR(name);
   }
 
@@ -198,7 +198,7 @@ class MemoryAllocator {
   int32_t prof_id_ = -1;
 };
 
-#if 1
+#if ET_HAVE_GNU_STATEMENT_EXPRESSIONS
 /**
  * Tries allocating from the specified MemoryAllocator*.
  *
@@ -220,7 +220,7 @@ class MemoryAllocator {
     if (et_try_allocate_result == nullptr && nbytes__ > 0) {               \
       __VA_ARGS__                                                          \
       /* The args must return. */                                          \
-      __ET_UNREACHABLE();                                                  \
+      ET_UNREACHABLE();                                                    \
     }                                                                      \
     return et_try_allocate_result;                                                \
   }())
@@ -247,7 +247,7 @@ class MemoryAllocator {
     if (et_try_allocate_result == nullptr) {                         \
       __VA_ARGS__                                                    \
       /* The args must return. */                                    \
-      __ET_UNREACHABLE();                                            \
+      ET_UNREACHABLE();                                              \
     }                                                                \
     outvar__ = et_try_allocate_result;                                          \
   }
@@ -276,7 +276,7 @@ class MemoryAllocator {
     if (et_try_allocate_result == nullptr && nelem__ > 0) {               \
       __VA_ARGS__                                                         \
       /* The args must return. */                                         \
-      __ET_UNREACHABLE();                                                 \
+      ET_UNREACHABLE();                                                   \
     }                                                                     \
     outvar__ = et_try_allocate_result;                                               \
   }
@@ -326,7 +326,7 @@ class MemoryAllocator {
  *
  * - On success, returns a pointer to the allocated buffer.
  * - On failure, returns `Error::MemoryAllocationFailed` from the calling
- *   function, which must be declared to return `torch::executor::Error`.
+ *   function, which must be declared to return `executorch::runtime::Error`.
  *
  * Example:
  * @code
@@ -335,7 +335,7 @@ class MemoryAllocator {
  */
 #define ET_ALLOCATE_OR_RETURN_ERROR(memory_allocator__, nbytes__) \
   ET_TRY_ALLOCATE_OR(memory_allocator__, nbytes__, {              \
-    return torch::executor::Error::MemoryAllocationFailed;        \
+    return ::executorch::runtime::Error::MemoryAllocationFailed;  \
   })
 
 /**
@@ -344,7 +344,7 @@ class MemoryAllocator {
  * - On success, returns a pointer to the allocated buffer. Note that the memory
  *   will not be initialized.
  * - On failure, returns `Error::MemoryAllocationFailed` from the calling
- *   function, which must be declared to return `torch::executor::Error`.
+ *   function, which must be declared to return `executorch::runtime::Error`.
  *
  * Example:
  * @code
@@ -362,7 +362,7 @@ class MemoryAllocator {
  *
  * - On success, returns a pointer to the allocated buffer.
  * - On failure, returns `Error::MemoryAllocationFailed` from the calling
- *   function, which must be declared to return `torch::executor::Error`.
+ *   function, which must be declared to return `executorch::runtime::Error`.
  *
  * Example:
  * @code
@@ -376,5 +376,13 @@ class MemoryAllocator {
     return torch::executor::Error::MemoryAllocationFailed;                    \
   })
 
+} // namespace runtime
+} // namespace executorch
+
+namespace torch {
+namespace executor {
+// TODO(T197294990): Remove these deprecated aliases once all users have moved
+// to the new `::executorch` namespaces.
+using ::executorch::runtime::MemoryAllocator;
 } // namespace executor
 } // namespace torch

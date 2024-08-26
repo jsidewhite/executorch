@@ -33,9 +33,11 @@
  */
 
 #include <executorch/extension/llm/sampler/sampler.h>
+#include <algorithm>
 
-namespace torch {
-namespace executor {
+namespace executorch {
+namespace extension {
+namespace llm {
 
 // sampler stuff
 template <typename T>
@@ -67,18 +69,6 @@ int32_t Sampler::sample_mult(T* probabilities, float coin) {
 }
 
 template <typename T>
-static int32_t compare(const void* a, const void* b) {
-  ProbIndex<T>* a_ = (ProbIndex<T>*)a;
-  ProbIndex<T>* b_ = (ProbIndex<T>*)b;
-  if (a_->prob > b_->prob) {
-    return -1;
-  } else if (a_->prob < b_->prob) {
-    return 1;
-  }
-  return 0;
-}
-
-template <typename T>
 int32_t Sampler::sample_topp(T* probabilities, float coin) {
   // top-p sampling (or "nucleus sampling") samples from the smallest set of
   // tokens that exceed probability topp. This way we never sample tokens that
@@ -100,7 +90,11 @@ int32_t Sampler::sample_topp(T* probabilities, float coin) {
       n0++;
     }
   }
-  qsort(probindex.get(), n0, sizeof(ProbIndex<T>), compare<T>);
+
+  auto compare = [](const ProbIndex<T>& a, const ProbIndex<T>& b) {
+    return a.prob > b.prob;
+  };
+  std::sort(probindex.get(), probindex.get() + n0, compare);
 
   // truncate the list where cumulative probability exceeds topp
   T cumulative_prob = 0;
@@ -131,7 +125,7 @@ Sampler::Sampler(
     float topp,
     unsigned long long rng_seed)
     : vocab_size_(vocab_size),
-      temperature_(temperature),
+      inv_temperature_(static_cast<bool>(temperature) ? 1.0f / temperature : 0),
       topp_(topp),
       rng_state_(rng_seed) {}
 
@@ -172,13 +166,13 @@ template <typename T>
 int32_t Sampler::sample(T* logits) {
   // sample the token given the logits and some hyperparameters
   int next;
-  if (temperature_ == 0.0f) {
+  if (inv_temperature_ == 0.0f) {
     // greedy argmax sampling: take the token with the highest probability
     next = sample_argmax(logits);
   } else {
     // apply the temperature to the logits
     for (int q = 0; q < vocab_size_; q++) {
-      logits[q] /= temperature_;
+      logits[q] *= inv_temperature_;
     }
     // apply softmax to the logits to get the probabilities for next token
     softmax(logits, vocab_size_);
@@ -199,5 +193,6 @@ int32_t Sampler::sample(T* logits) {
 template int32_t Sampler::sample<float>(float* logits);
 template int32_t Sampler::sample<exec_aten::Half>(exec_aten::Half* logits);
 
-} // namespace executor
-} // namespace torch
+} // namespace llm
+} // namespace extension
+} // namespace executorch

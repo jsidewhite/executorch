@@ -180,9 +180,26 @@ class ComputeGraph final {
     return values_.at(idx).type();
   }
 
-  // Get Tensor Property
+  //
+  // Tensor Properties Accessors
+  //
 
   std::vector<int64_t> sizes_of(const ValueRef idx) const;
+
+  /*
+   * Returns the size of the tensor at `idx` along the specified dimension.
+   * Negative indexing is allowed.
+   */
+  template <typename T>
+  T size_at(const int64_t dim, const ValueRef idx) const {
+    const Value& val = values_.at(idx);
+    if (val.isTensor()) {
+      return static_cast<T>(utils::val_at(dim, val.toConstTensor().sizes()));
+    } else if (val.isTensorRef()) {
+      return static_cast<T>(utils::val_at(dim, val.toConstTensorRef().sizes));
+    }
+    VK_THROW("Could not get sizes of value with type ", val.type());
+  }
 
   vkapi::ScalarType dtype_of(const ValueRef idx) const;
 
@@ -190,8 +207,8 @@ class ComputeGraph final {
     return values_.at(idx).toConstTensor().image_extents();
   }
 
-  inline int32_t texel_numel_of(const ValueRef idx) const {
-    return values_.at(idx).toConstTensor().texel_numel();
+  inline int32_t numel_of(const ValueRef idx) const {
+    return values_.at(idx).toConstTensor().numel();
   }
 
   inline utils::StorageType storage_type_of(const ValueRef idx) const {
@@ -200,6 +217,13 @@ class ComputeGraph final {
 
   inline bool is_buffer_storage(const ValueRef idx) const {
     return values_.at(idx).toConstTensor().has_buffer_storage();
+  }
+
+  inline bool val_is_view_of(const ValueRef maybe_view, const ValueRef base)
+      const {
+    return values_.at(maybe_view)
+        .toConstTensor()
+        .is_view_of(values_.at(base).toConstTensor());
   }
 
   inline utils::GPUMemoryLayout memory_layout_of(const ValueRef idx) const {
@@ -214,19 +238,21 @@ class ComputeGraph final {
     return values_.at(idx).toTensor().sizes_ubo();
   }
 
+  inline vkapi::BufferBindInfo strides_ubo(const ValueRef idx) {
+    return values_.at(idx).toTensor().strides_ubo();
+  }
+
+  inline vkapi::BufferBindInfo numel_ubo(const ValueRef idx) {
+    return values_.at(idx).toTensor().numel_ubo();
+  }
+
   inline vkapi::BufferBindInfo texture_limits_ubo(const ValueRef idx) {
     return values_.at(idx).toTensor().texture_limits_ubo();
   }
 
-  inline vkapi::BufferBindInfo texel_strides_ubo(const ValueRef idx) {
-    return values_.at(idx).toTensor().texel_strides_ubo();
-  }
-
-  inline vkapi::BufferBindInfo ntexels_ubo(const ValueRef idx) {
-    return values_.at(idx).toTensor().ntexels_ubo();
-  }
-
+  //
   // Scalar Value Extraction
+  //
 
   template <typename T>
   T extract_scalar(const ValueRef idx) {
@@ -348,6 +374,24 @@ class ComputeGraph final {
       const utils::GPUMemoryLayout memory_layout);
 
   /*
+   * Use the copy constructor of `api::vTensor` to create a "view" of the
+   * `vTensor` value at `vref`. See the copy constructor of `api::vTensor` for
+   * more details.
+   */
+  ValueRef add_tensor_view(const ValueRef vref);
+
+  /*
+   * Use the copy constructor of `api::vTensor` to create a "view" of the
+   * `vTensor` value at `vref` with different sizes and dim order. See the copy
+   * constructor of `api::vTensor` for more details.
+   */
+  ValueRef add_tensor_view(
+      const ValueRef vref,
+      const std::vector<int64_t>& sizes,
+      const std::vector<int64_t>& dim_order,
+      const size_t offset_numel = 0);
+
+  /*
    * Add a `TensorRef` value to the graph with the specific properties. A
    * `TensorRef` is a reference to a `api::vTensor` whose data is stored in an
    * external CPU buffer.
@@ -459,15 +503,20 @@ class ComputeGraph final {
   utils::uvec3 create_global_wg_size(const ValueRef idx);
 
   /*
-   * Suggest a local workgroup size for a given `api::vTensor` value, assuming
-   * that every shader invocation calculates one texel element of the output
-   * tensor.
+   * Suggest a local workgroup size for a given global workgroup size.
    *
    * The local workgroup size will be formed to try and minimize the number of
    * inactive invocations.
    *
    * Currently, the local workgroup size is hard-coded to contain a total of 64
    * shader invocations. In the future, this value can be configured.
+   */
+  utils::uvec3 create_local_wg_size(const utils::uvec3 global_wg_size);
+
+  /*
+   * Convenience function to suggest a local workgroup size for a given
+   * `api::vTensor` value, assuming that every shader invocation calculates one
+   * texel element of the output tensor.
    */
   utils::uvec3 create_local_wg_size(const ValueRef idx);
 
@@ -499,6 +548,17 @@ class ComputeGraph final {
 
   void resize_input(const int64_t idx, const std::vector<int64_t>& new_sizes);
   void propagate_resize();
+
+  //
+  // Miscellaneous Utilities
+  //
+
+  /*
+   * Check whether the GPU supports 8 bit buffers.
+   */
+  inline bool int8_buffers_enabled() const {
+    return context_->adapter_ptr()->has_full_int8_buffers_support();
+  }
 
   //
   // Debug support (implemented in Logging.cpp)

@@ -28,9 +28,6 @@ T_QuantPerTensor = exir_ops.edge.quantized_decomposed.quantize_per_tensor.defaul
 T_DQuantPerTensor = exir_ops.edge.quantized_decomposed.dequantize_per_tensor.default
 
 
-log: logging.Logger = logging.getLogger(__name__)
-
-
 # NB: Set this to None to handle validation from MobileBert
 @lru_cache(maxsize=None)
 def is_same_node(
@@ -208,7 +205,6 @@ def _assign_new_tag(
 def _maybe_duplicate_constant_nodes(
     tagged_exported_program: ExportedProgram,
     tag: str,
-    owning_program: ExportedProgram,
 ) -> None:
     """
     If the constants node is shared by different tagged nodes, like
@@ -241,7 +237,6 @@ def _maybe_duplicate_constant_nodes(
         copied_nodes = copied_nodes.union(
             duplicate_constant_node(tagged_exported_program, candidate_node)
         )
-        duplicate_constant_node(owning_program, candidate_node)
     candidate_node_with_copies = candidate_nodes.union(copied_nodes)
     _assign_new_tag(tagged_exported_program, candidate_node_with_copies)
 
@@ -501,3 +496,31 @@ class DelegateMappingBuilder:
         # pyre-ignore Warning from Union[int, st] keys
         self._debug_handle_map[identifier] = filtered_debug_handles
         return identifier
+
+
+class WhyNoPartition:
+    """
+    Simple helper class for partitioners to log why a node was not lowered.
+
+    Example usage:
+
+        # In your backend partitioner file(s)
+        why = WhyNoPartition(logger=your_backend_logger)
+
+        # hypothetical function that checks if a node can be lowered
+        if not can_be_lowered(node):
+            why(node, "This node was not lowered because ...")
+    """
+
+    def __init__(self, logger: logging.Logger):
+        self.logger = logger
+        self.node: Optional[torch.fx.Node] = None
+        self.reason: str = ""
+
+    def __call__(self, node: torch.fx.Node, reason: str) -> None:
+        self.node = node
+        self.reason = reason
+        self.logger.debug(self)
+
+    def __str__(self) -> str:
+        return f"WhyNoPartition: Node {self.node} was not partitioned because {self.reason}."

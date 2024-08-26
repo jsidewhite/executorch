@@ -8,6 +8,11 @@
 
 import operator
 
+from executorch.backends.vulkan.passes.custom_ops_defs import (  # noqa
+    conv_with_clamp_op,
+    grid_priors_op,
+)
+
 from executorch.exir.dialects._ops import ops as exir_ops
 
 
@@ -82,6 +87,7 @@ POOLING_OPS = [
 
 CONVOLUTION_OPS = [
     exir_ops.edge.aten.convolution.default,
+    exir_ops.edge.et_vk.conv_with_clamp.default,
 ]
 
 REDUCTION_OPS = [
@@ -129,6 +135,7 @@ CREATION_OPS = [
     exir_ops.edge.aten.upsample_nearest2d.vec,
     exir_ops.edge.aten.zeros.default,
     exir_ops.edge.aten.zeros_like.default,
+    exir_ops.edge.et_vk.grid_priors.default,
 ]
 
 

@@ -4,6 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+
+import argparse
+
 import torch
 
 from executorch.backends.transforms.duplicate_dynamic_quant_chain import (
@@ -22,29 +25,49 @@ from torch.ao.quantization.quantizer.xnnpack_quantizer import (
 
 from transformers import Phi3ForCausalLM
 
+from .phi_3_mini import Phi3Mini
 
-def main() -> None:
+
+def export(args) -> None:
     torch.manual_seed(0)
 
-    # pyre-ignore: Undefined attribute [16]: Module `transformers` has no attribute `Phi3ForCausalLM`
-    model = Phi3ForCausalLM.from_pretrained("microsoft/Phi-3-mini-4k-instruct")
-
-    example_inputs = (torch.randint(0, 100, (1, 100), dtype=torch.long),)
-    dynamic_shape = {"input_ids": {1: torch.export.Dim("sequence_length", max=128)}}
-
-    xnnpack_quant_config = get_symmetric_quantization_config(
-        is_per_channel=True, is_dynamic=True
-    )
-    xnnpack_quantizer = XNNPACKQuantizer()
-    xnnpack_quantizer.set_global(xnnpack_quant_config)
-
-    with torch.nn.attention.sdpa_kernel(
-        [torch.nn.attention.SDPBackend.MATH]
-    ), torch.no_grad():
-        model = capture_pre_autograd_graph(
-            model, example_inputs, dynamic_shapes=dynamic_shape
+    if args.context_length == "4k":
+        model_name = "microsoft/Phi-3-mini-4k-instruct"
+    elif args.context_length == "128k":
+        model_name = "microsoft/Phi-3-mini-128k-instruct"
+    else:
+        raise Exception(
+            f"Invalid context length {args.context_length}. Should be either 4k or 128k"
         )
-        model = prepare_pt2e(model, xnnpack_quantizer)
+
+    with torch.no_grad():
+        model = Phi3Mini(
+            # pyre-ignore: Undefined attribute [16]: Module `transformers` has no attribute `Phi3ForCausalLM`
+            model=Phi3ForCausalLM.from_pretrained(model_name),
+            max_batch_size=1,
+            max_seq_len=args.seq_len,
+        )
+        example_inputs = (
+            torch.tensor(
+                [[1048, 263, 931, 746]], dtype=torch.long, requires_grad=False
+            ),
+        )
+        dynamic_shapes = {
+            "input_ids": {
+                1: torch.export.Dim("sequence_length", min=1, max=args.seq_len)
+            }
+        }
+
+        xnnpack_quant_config = get_symmetric_quantization_config(
+            is_per_channel=True, is_dynamic=True
+        )
+        xnnpack_quantizer = XNNPACKQuantizer()
+        xnnpack_quantizer.set_global(xnnpack_quant_config)
+
+        model = capture_pre_autograd_graph(
+            model, example_inputs, dynamic_shapes=dynamic_shapes
+        )
+        model = prepare_pt2e(model, xnnpack_quantizer)  # pyre-fixme[6]
         model(*example_inputs)
         model = convert_pt2e(model, fold_quantize=False)
         DuplicateDynamicQuantChainPass()(model)
@@ -53,18 +76,44 @@ def main() -> None:
         model = torch.export._trace._export(
             model,
             example_inputs,
-            dynamic_shapes=dynamic_shape,
+            dynamic_shapes=dynamic_shapes,
             strict=False,
             pre_dispatch=False,
         )
 
     edge_config = get_xnnpack_edge_compile_config()
     edge_manager = to_edge(model, compile_config=edge_config)
-    edge_manager = edge_manager.to_backend(XnnpackPartitioner(has_dynamic_shapes=True))
+    edge_manager = edge_manager.to_backend(XnnpackPartitioner())
     et_program = edge_manager.to_executorch()
 
-    with open("phi-3-mini.pte", "wb") as file:
+    with open(args.output_name, "wb") as file:
         file.write(et_program.buffer)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--context_length",
+        type=str,
+        default="4k",
+        choices=["4k", "128k"],
+        help="Phi-3-mini provides two context length variants: 4k and 128k",
+    )
+    parser.add_argument(
+        "-s",
+        "--seq_len",
+        type=int,
+        default=128,
+        help="Maximum number of tokens including prompt to generate",
+    )
+    parser.add_argument(
+        "-o",
+        "--output_name",
+        default="phi-3-mini.pte",
+        help="Override the output filename of the saved pte model file.",
+    )
+    export(parser.parse_args())
 
 
 if __name__ == "__main__":

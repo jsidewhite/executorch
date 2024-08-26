@@ -9,6 +9,7 @@
 # Utility functions for ArmQuantizer
 #
 
+import operator
 from typing import Callable, cast, List
 
 import torch
@@ -101,12 +102,19 @@ def is_input_ok_for_quantization(input_act: Node, gm: GraphModule):
     )
 
 
+def get_node_target(module: torch.nn.Module | GraphModule, target_str: str):
+    targets = target_str.split(".")
+    for target in targets[:-1]:
+        module = module.get_submodule(target)
+    return getattr(module, targets[-1])
+
+
 def is_input_large_scalar(node: Node, gm: GraphModule):
     """Check if input is a large scalar value. So that we can skip quantization for the node
     since histc op (in HistogramObserver) only works for values up to certain upper bound
     """
     if node.op == "get_attr" and isinstance(node.target, str):
-        tensor = getattr(gm, node.target)
+        tensor = get_node_target(gm, node.target)
         # torch.histc works until this upper bound
         HISTC_UPPER_BOUND = 3.4028235e15
         return tensor.numel() == 1 and abs(tensor.item()) > HISTC_UPPER_BOUND
@@ -130,6 +138,7 @@ def is_share_obs_or_fq_op(op: Callable) -> bool:
     return op in [
         torch.ops.aten.hardtanh.default,
         torch.ops.aten.hardtanh_.default,
+        torch.ops.aten.relu.default,
         torch.ops.aten.mean.default,
         torch.ops.aten.mean.dim,
         torch.ops.aten.permute.default,
@@ -141,8 +150,11 @@ def is_share_obs_or_fq_op(op: Callable) -> bool:
         torch.ops.aten.view_copy.default,
         torch.ops.aten.view.default,
         torch.ops.aten.slice.Tensor,
+        torch.ops.aten.split.Tensor,
+        torch.ops.aten.split_with_sizes.default,
         torch.ops.aten.flatten.using_ints,
         torch.ops.aten.dropout.default,
+        operator.getitem,
     ]
 
 

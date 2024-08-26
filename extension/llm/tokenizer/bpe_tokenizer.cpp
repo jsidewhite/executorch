@@ -10,8 +10,12 @@
 
 #include <cstring>
 
-namespace torch {
-namespace executor {
+using ::executorch::runtime::Error;
+using ::executorch::runtime::Result;
+
+namespace executorch {
+namespace extension {
+namespace llm {
 
 static int compare_tokens(const void* a, const void* b) {
   if (((TokenIndex*)a)->str == nullptr) {
@@ -190,7 +194,7 @@ BPETokenizer::encode(const std::string& text, int8_t bos, int8_t eos) const {
   std::vector<uint64_t> tokens;
 
   // add optional BOS token, if desired
-  if (bos > 0) {
+  if (bos >= 0) {
     while (bos--) {
       tokens.push_back(bos_tok_);
     }
@@ -311,5 +315,6 @@ BPETokenizer::encode(const std::string& text, int8_t bos, int8_t eos) const {
   return Result(tokens);
 }
 
-} // namespace executor
-} // namespace torch
+} // namespace llm
+} // namespace extension
+} // namespace executorch

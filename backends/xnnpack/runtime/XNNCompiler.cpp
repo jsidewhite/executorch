@@ -1504,6 +1504,35 @@ Error defineScaledDotProductAttentionNode(
 
   return Error::Ok;
 }
+
+/*
+Defines batch matrix multiply node into the subgraph,
+using the remapped ids to map the serialized ids,
+to the new ids generated when defining the tensor value
+*/
+Error defineBatchMatrixMultiplyNode(
+    xnn_subgraph_t subgraph_ptr,
+    const std::unordered_map<uint32_t, uint32_t>& remapped_ids,
+    const NodePtr node) noexcept {
+  auto graph_node = node->xnode_union_as_XNNBatchMatrixMultiply();
+
+  xnn_status status = xnn_define_batch_matrix_multiply(
+      subgraph_ptr,
+      remapped_ids.at(graph_node->input1_id()),
+      remapped_ids.at(graph_node->input2_id()),
+      remapped_ids.at(graph_node->output_id()),
+      graph_node->flags());
+
+  ET_CHECK_OR_RETURN_ERROR(
+      status == xnn_status_success,
+      Internal,
+      "Failed to create BMM node %i with code: %s",
+      node->debug_handle(),
+      xnn_status_to_string(status));
+
+  return Error::Ok;
+}
+
 /*
 Returns not Implemented Error code. This function is meant to be
 called when the compiler encountes a XNodeType from the flatbuffer
@@ -1566,6 +1595,7 @@ DefineNodeFunc getDefineNodeFunc(fb_xnnpack::XNodeUnion nodeType) {
     _DEFINE(Concatenate4)
     _DEFINE(StaticSlice)
     _DEFINE(ScaledDotProductAttention)
+    _DEFINE(BatchMatrixMultiply)
     case fb_xnnpack::XNodeUnion::NONE:
     default: // Adding here as a catch all, just in case
       return &defineNotImplementedNode;
@@ -1578,11 +1608,12 @@ Builds the xnnpack runtime object using the buffer pointer. The buffer pointer
 must be a valid pointer to the serialized xnnpack object. It also fills the
 XNNExecutor object with the built xnn_runtime and the input/output ids.
 */
-__ET_NODISCARD Error XNNCompiler::compileModel(
+ET_NODISCARD Error XNNCompiler::compileModel(
     const void* buffer_pointer,
     size_t num_bytes,
     XNNExecutor* executor,
-    MemoryAllocator* runtime_allocator) {
+    MemoryAllocator* runtime_allocator,
+    xnn_workspace_t workspace) {
   Result<XNNHeader> header = XNNHeader::Parse(buffer_pointer, num_bytes);
   const uint8_t* flatbuffer_data = nullptr;
   const uint8_t* constant_data = nullptr;
@@ -1678,11 +1709,26 @@ __ET_NODISCARD Error XNNCompiler::compileModel(
 #endif
 
   xnn_runtime_t runtime_ptr = nullptr;
-  status = xnn_create_runtime_v2(
+
+#ifdef ENABLE_XNNPACK_SHARED_WORKSPACE
+  ET_CHECK_OR_RETURN_ERROR(
+      workspace != nullptr, Internal, "Failed to initialize XNNPACK workspace");
+  status = xnn_create_runtime_v4(
       subgraph.get(),
+      /*weight_cache=*/nullptr, // TODO - support weight cache
+      workspace,
       torch::executorch::threadpool::get_pthreadpool(),
       runtime_flags,
       &runtime_ptr);
+#else
+  status = xnn_create_runtime_v3(
+      subgraph.get(),
+      /*weight_cache=*/nullptr, // TODO - support weight cache
+      torch::executorch::threadpool::get_pthreadpool(),
+      runtime_flags,
+      &runtime_ptr);
+#endif
+
   ET_CHECK_OR_RETURN_ERROR(
       xnn_status_success == status,
       Internal,
