@@ -251,7 +251,7 @@ ET_NODISCARD Error FileDataLoader::load_into(
   // Cannot use the standard dup() or fcntl() calls because the returned
   // duplicate will share the underlying file record and affect the original fd
   // when seeking on multiple threads simultaneously.
-  const auto dup_fd = ET_HAVE_PREAD ? fd_ : ::open(file_name_, _O_BINARY);
+  const auto dup_fd = ET_HAVE_PREAD ? fd_ : ::open(file_name_, O_RDONLY | _O_BINARY);
 
   while (needed > 0) {
     // Reads on macOS will fail with EINVAL if size > INT32_MAX.
