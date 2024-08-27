@@ -18,7 +18,7 @@
 # It should also be cmake-lint clean.
 #
 
-set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
+# set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT_DEFAULT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
 
 if (MSVC)
   add_compile_options(/bigobj)
