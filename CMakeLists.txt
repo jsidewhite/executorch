@@ -683,6 +683,7 @@ if(EXECUTORCH_BUILD_PYBIND)
       -fPIC
       -frtti
       -fexceptions
+      /bigobj
       # libtorch is built with the old ABI, so we need to do the same for any
       # .cpp files that include torch, c10, or ATen targets.
       -D_GLIBCXX_USE_CXX11_ABI=0
