@@ -217,10 +217,11 @@ class _BaseExtension(Extension):
         """
         print("##############################################")
         print("##############################################")
-        print("jwjw: cmake_cache_dir: ", cmake_cache_dir)
 
         # Share the cmake-out location with CustomBuild.
         cmake_cache_dir = Path(installer.get_finalized_command("build").cmake_cache_dir)
+        
+        print("jwjw: cmake_cache_dir: ", cmake_cache_dir)
 
         cfg = get_build_type(installer.debug)
 
