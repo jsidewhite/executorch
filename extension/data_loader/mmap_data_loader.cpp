@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <executorch/extension/data_loader/file.h>
 #include <executorch/extension/data_loader/mmap_data_loader.h>
 
 #include <cerrno>
@@ -13,10 +14,8 @@
 #include <limits>
 
 #include <fcntl.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include <executorch/runtime/core/error.h>
 #include <executorch/runtime/core/result.h>
@@ -61,16 +60,16 @@ MmapDataLoader::~MmapDataLoader() {
   // file_name_ can be nullptr if this instance was moved from, but freeing a
   // null pointer is safe.
   std::free(const_cast<char*>(file_name_));
-  // fd_ can be -1 if this instance was moved from, but closing a negative fd is
-  // safe (though it will return an error).
-  ::close(fd_);
+  if (fd_ != -1) {
+    ::close(fd_);
+  }
 }
 
 Result<MmapDataLoader> MmapDataLoader::from(
     const char* file_name,
     MmapDataLoader::MlockConfig mlock_config) {
   // Cache the page size.
-  long page_size = sysconf(_SC_PAGESIZE);
+  long page_size = get_os_page_size();
   if (page_size < 0) {
     ET_LOG(Error, "Could not get page size: %s (%d)", ::strerror(errno), errno);
     return Error::AccessFailed;

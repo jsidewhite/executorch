@@ -172,7 +172,7 @@ option(EXECUTORCH_BUILD_KERNELS_CUSTOM_AOT "Build the custom ops lib for AOT"
 )
 
 option(EXECUTORCH_BUILD_EXTENSION_DATA_LOADER "Build the Data Loader extension"
-       OFF
+       ON
 )
 
 option(EXECUTORCH_BUILD_EXTENSION_MODULE "Build the Module extension" OFF)

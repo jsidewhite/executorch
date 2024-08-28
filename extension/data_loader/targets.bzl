@@ -39,7 +39,14 @@ def define_common_targets():
 
     runtime.cxx_library(
         name = "file_data_loader",
-        srcs = ["file_data_loader.cpp"],
+        srcs = [
+            "file_data_loader.cpp",
+            "mman_windows.cpp",
+        ],
+        headers = [
+            "file.h",
+            "mman_windows.h",
+        ],
         exported_headers = ["file_data_loader.h"],
         visibility = [
             "//executorch/test/...",
