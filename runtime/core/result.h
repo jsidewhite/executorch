@@ -231,6 +231,15 @@ using ::executorch::runtime::Result;
     __outvar = std::move(*et_result__);           \
   }
 
+#define ET_CHECK_UNWRAPPABLE(result__) \
+  do {                                 \
+    if (!result__.ok()) {           \
+      return result__.error();      \
+    }                                  \
+  } while (false)
+
+#define ET_TAKE_WRAPPED(result__) \
+  (std::move(*result__))
 
 #define ET_UNWRAP(result__, ...) ET_INTERNAL_UNWRAP(result__, ##__VA_ARGS__)
 

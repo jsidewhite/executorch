@@ -229,7 +229,9 @@ class Module final {
   ::executorch::runtime::Result<::executorch::runtime::EValue> get(
       const std::string& method_name,
       const std::vector<::executorch::runtime::EValue>& input) {
-    auto result = ET_UNWRAP(execute(method_name, input));
+    auto wrapped_result = execute(method_name, input);
+    ET_CHECK_UNWRAPPABLE(wrapped_result);
+    auto result = std::move(*wrapped_result);
     if (result.empty()) {
       return ::executorch::runtime::Error::InvalidArgument;
     }

@@ -23,15 +23,18 @@
  *
  * @param[in] result__ Expression yielding the result to unwrap.
  */
-#define ET_UNWRAP_UNIQUE(result__)                                     \
-  ({                                                                   \
-    auto et_result__ = (result__);                                     \
-    if (!et_result__.ok()) {                                           \
-      return et_result__.error();                                      \
-    }                                                                  \
-    std::make_unique<std::remove_reference_t<decltype(*et_result__)>>( \
-        std::move(*et_result__));                                      \
-  })
+#define ET_TAKE_WRAPPED_UNIQUE(et_result__)                           \
+  (std::make_unique<std::remove_reference_t<decltype(*et_result__)>>( \
+        std::move(*et_result__)))
+
+#define ET_UNWRAP_UNIQUE_OR_RETURN(outvar__, result__) \
+  do {                                                 \
+    auto et_result__ = (result__);                     \
+    if (!et_result__.ok()) {                           \
+      return et_result__.error();                      \
+    }                                                  \
+    outvar__ = ET_TAKE_WRAPPED_UNIQUE(et_result__);    \
+  } while (false)
 
 using ::exec_aten::Tensor;
 using ::executorch::extension::FileDataLoader;
@@ -101,26 +104,25 @@ Error Module::load(const Program::Verification verification) {
     if (!data_loader_) {
       switch (load_mode_) {
         case LoadMode::File:
-          data_loader_ =
-              ET_UNWRAP_UNIQUE(FileDataLoader::from(file_path_.c_str()));
+          ET_UNWRAP_UNIQUE_OR_RETURN(data_loader_, FileDataLoader::from(file_path_.c_str()));
           break;
         case LoadMode::Mmap:
-          data_loader_ = ET_UNWRAP_UNIQUE(MmapDataLoader::from(
+            ET_UNWRAP_UNIQUE_OR_RETURN(data_loader_, MmapDataLoader::from(
               file_path_.c_str(), MmapDataLoader::MlockConfig::NoMlock));
           break;
         case LoadMode::MmapUseMlock:
-          data_loader_ =
-              ET_UNWRAP_UNIQUE(MmapDataLoader::from(file_path_.c_str()));
+            ET_UNWRAP_UNIQUE_OR_RETURN(data_loader_, MmapDataLoader::from(file_path_.c_str()));
           break;
         case LoadMode::MmapUseMlockIgnoreErrors:
-          data_loader_ = ET_UNWRAP_UNIQUE(MmapDataLoader::from(
+            ET_UNWRAP_UNIQUE_OR_RETURN(data_loader_, MmapDataLoader::from(
               file_path_.c_str(),
               MmapDataLoader::MlockConfig::UseMlockIgnoreErrors));
           break;
       }
     };
-    auto program =
-        ET_UNWRAP_UNIQUE(Program::load(data_loader_.get(), verification));
+    auto wrapped_program = Program::load(data_loader_.get(), verification);
+    ET_CHECK_UNWRAPPABLE(wrapped_program);
+    auto program = ET_TAKE_WRAPPED_UNIQUE(wrapped_program);
     program_ = std::shared_ptr<Program>(
         program.release(),
         [data_loader = std::move(data_loader_)](Program* pointer) {
@@ -151,8 +153,10 @@ Error Module::load_method(const std::string& method_name) {
     ET_CHECK_OK_OR_RETURN_ERROR(load());
 
     MethodHolder method_holder;
-    const auto method_metadata =
-        ET_UNWRAP(program_->method_meta(method_name.c_str()));
+    auto wrapped_method_metadata =
+        program_->method_meta(method_name.c_str());
+    ET_CHECK_UNWRAPPABLE(wrapped_method_metadata);
+    const auto method_metadata = std::move(*wrapped_method_metadata);
     const auto planned_buffersCount =
         method_metadata.num_memory_planned_buffers();
     method_holder.planned_buffers.reserve(planned_buffersCount);
@@ -172,7 +176,7 @@ Error Module::load_method(const std::string& method_name) {
         memory_allocator_.get(),
         method_holder.planned_memory.get(),
         temp_allocator_.get());
-    method_holder.method = ET_UNWRAP_UNIQUE(program_->load_method(
+    ET_UNWRAP_UNIQUE_OR_RETURN(method_holder.method, program_->load_method(
         method_name.c_str(),
         method_holder.memory_manager.get(),
         event_tracer_.get()));
