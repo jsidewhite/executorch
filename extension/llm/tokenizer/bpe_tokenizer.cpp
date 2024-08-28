@@ -154,7 +154,10 @@ static int32_t
 str_lookup(const char* str, TokenIndex* sorted_vocab, int32_t vocab_size) {
   // efficiently find the perfect match for str in vocab, return its index or -1
   // if not found
-  TokenIndex tok = {.str = str}; // acts as the key to search for
+  // TODO: upgrade to C++ 20 for static initializers?
+  //TokenIndex tok = {.str = str}; // acts as the key to search for
+  TokenIndex tok{};
+  tok.str = str; // acts as the key to search for
   TokenIndex* res = (TokenIndex*)bsearch(
       &tok, sorted_vocab, vocab_size, sizeof(TokenIndex), compare_tokens);
   return res != nullptr ? res->id : -1;
