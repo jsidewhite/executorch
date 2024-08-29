@@ -39,14 +39,7 @@ def define_common_targets():
 
     runtime.cxx_library(
         name = "file_data_loader",
-        srcs = [
-            "file_data_loader.cpp",
-            "mman_windows.cpp",
-        ],
-        headers = [
-            "file.h",
-            "mman_windows.h",
-        ],
+        srcs = ["file_data_loader.cpp"],
         exported_headers = ["file_data_loader.h"],
         visibility = [
             "//executorch/test/...",
@@ -66,6 +59,22 @@ def define_common_targets():
         visibility = [
             "//executorch/test/...",
             "//executorch/extension/pybindings/...",
+            "//executorch/runtime/executor/test/...",
+            "//executorch/extension/data_loader/test/...",
+            "@EXECUTORCH_CLIENTS",
+        ],
+        exported_deps = [
+            "//executorch/runtime/core:core",
+        ],
+    )
+
+    runtime.cxx_library(
+        name = "mman_windows",
+        srcs = ["mman_windows.cpp"],
+        headers = ["file.h"],
+        exported_headers = ["mman_windows.h"],
+        visibility = [
+            "//executorch/test/...",
             "//executorch/runtime/executor/test/...",
             "//executorch/extension/data_loader/test/...",
             "@EXECUTORCH_CLIENTS",
