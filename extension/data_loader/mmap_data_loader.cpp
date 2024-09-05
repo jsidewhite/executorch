@@ -181,12 +181,25 @@ Result<FreeableBuffer> MmapDataLoader::load(
   Range range =
       get_overlapping_pages(static_cast<uintptr_t>(offset), size, page_size_);
 
+  size_t map_size = range.size;
+#ifdef _MSC_VER
+  // On Windows, don't mmap-in memory past end of on-disk file.
+  // 
+  // The Windows implementation of mmap uses CreateFileMapping which returns
+  // error STATUS_SECTION_TOO_BIG (0xc0000040) if we try to map past the end
+  // of the last page of a file mapped in as read-only.
+  if (range.start + range.size > file_size_)
+  {
+    map_size = file_size_ - range.start;
+  }
+#endif
+
   // Map the pages read-only. MAP_PRIVATE vs. MAP_SHARED doesn't matter since
   // the data is read-only, but use PRIVATE just to further avoid accidentally
   // modifying the file.
   void* pages = ::mmap(
       nullptr,
-      range.size,
+      map_size,
       PROT_READ,
       MAP_PRIVATE,
       fd_,
