@@ -14,7 +14,10 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)) {
+if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)) {
+    $env:LLVM_PROFDATA = $env:LLVM_PROFDATA -or "xcrun llvm-profdata"
+    $env:LLVM_COV = $env:LLVM_COV -or "xcrun llvm-cov"
+} elseif ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)) {
     $env:LLVM_PROFDATA = $env:LLVM_PROFDATA -or "xcrun llvm-profdata"
     $env:LLVM_COV = $env:LLVM_COV -or "xcrun llvm-cov"
 } elseif ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Linux)) {
@@ -27,9 +30,11 @@ function Build-ExecuTorch {
     if (Get-Command glslc -ErrorAction SilentlyContinue) {
         $BUILD_VULKAN = "ON"
     }
+#        -DEXECUTORCH_BUILD_XNNPACK=ON `
+        # -DEXECUTORCH_USE_CPP_CODE_COVERAGE=ON `
     cmake . `
         -DCMAKE_INSTALL_PREFIX=cmake-out `
-        -DEXECUTORCH_USE_CPP_CODE_COVERAGE=ON `
+        -DEXECUTORCH_USE_CPP_CODE_COVERAGE=OFF `
         -DEXECUTORCH_BUILD_KERNELS_OPTIMIZED=ON `
         -DEXECUTORCH_BUILD_KERNELS_QUANTIZED=ON `
         -DEXECUTORCH_BUILD_EXTENSION_DATA_LOADER=ON `
@@ -37,23 +42,28 @@ function Build-ExecuTorch {
         -DEXECUTORCH_BUILD_EXTENSION_RUNNER_UTIL=ON `
         -DEXECUTORCH_BUILD_EXTENSION_TENSOR=ON `
         -DEXECUTORCH_BUILD_SDK=ON `
-        -DEXECUTORCH_BUILD_VULKAN=$BUILD_VULKAN `
-        -DEXECUTORCH_BUILD_XNNPACK=ON `
+        -DEXECUTORCH_BUILD_VULKAN="$BUILD_VULKAN" `
+        -DEXECUTORCH_BUILD_XNNPACK=OFF `
         -Bcmake-out
+    # cmake --build cmake-out -j9
     cmake --build cmake-out -j9 --target install
+    # throw 2
 }
 
 function Build-GTest {
     New-Item -ItemType Directory -Force -Path "third-party/googletest/build" | Out-Null
     Push-Location "third-party/googletest/build"
     cmake .. -DCMAKE_INSTALL_PREFIX=.
-    make -j4
-    make install
+    #make -j4
+    #cmake -S .. -B . -D CMAKE_BUILD_TYPE=Release
+    cmake --build .
+    #make install
+    cmake --install .
     Pop-Location
 }
 
 function Export-TestModel {
-    python3 -m test.models.export_program --modules "ModuleAdd,ModuleAddHalf,ModuleDynamicCatUnallocatedIO,ModuleIndex,ModuleLinear,ModuleMultipleEntry,ModuleSimpleTrain" --outdir "cmake-out" 2> $null
+    python -m test.models.export_program --modules "ModuleAdd,ModuleAddHalf,ModuleDynamicCatUnallocatedIO,ModuleIndex,ModuleLinear,ModuleMultipleEntry,ModuleSimpleTrain" --outdir "cmake-out" 2> $null
     python3 -m test.models.export_delegated_program --modules "ModuleAddMul" --backend_id "StubBackend" --outdir "cmake-out" | Out-Null
 
     $global:ET_MODULE_ADD_HALF_PATH = Resolve-Path "cmake-out/ModuleAddHalf.pte"
@@ -71,13 +81,17 @@ function Export-TestModel {
 
 function Build-AndRunTest {
     param ($TestDir)
+    write-warning "$(join-path (Get-Location) third-party/googletest/build)"
+    # -DEXECUTORCH_USE_CPP_CODE_COVERAGE=ON `
     cmake $TestDir `
         -DCMAKE_BUILD_TYPE=Debug `
         -DCMAKE_INSTALL_PREFIX=cmake-out `
-        -DEXECUTORCH_USE_CPP_CODE_COVERAGE=ON `
-        -DCMAKE_PREFIX_PATH="$(Get-Location)/third-party/googletest/build" `
-        -Bcmake-out/$TestDir
-    cmake --build cmake-out/$TestDir -j9
+        -DEXECUTORCH_USE_CPP_CODE_COVERAGE=OFF `
+        -DCMAKE_PREFIX_PATH="$(join-path (Get-Location) third-party/googletest/build)" `
+        -B(join-path cmake-out $TestDir)
+    #throw 1
+    #cmake --build cmake-out/$TestDir -j9
+    cmake --build (join-path cmake-out $TestDir)
 
     if ($TestDir -match ".*examples/models/llama2/tokenizer.*") {
         $env:RESOURCES_PATH = Resolve-Path "examples/models/llama2/tokenizer/test/resources"
@@ -115,18 +129,25 @@ function Probe-Tests {
         "devtools",
         "test"
     )
+    
+    $pwdLength = (join-path $pwd \).length
 
     $dirs | ForEach-Object { 
-        Get-ChildItem -Recurse -Filter 'CMakeLists.txt' -Include "$($_)\test" -Exclude "$($_)\third-party" |
-        ForEach-Object { $_.DirectoryName } |
-        Sort-Object -Unique
+        #Get-ChildItem -Recurse -Filter 'CMakeLists.txt' -Include "$($_)\test" -Exclude "$($_)\third-party" |
+        #ForEach-Object { $_.DirectoryName } |
+        #Sort-Object -Unique
+        # ls -Recurse $_ | %{ls -Recurse -Path $_.fullname -Filter test -Directory} | ?{ls -Path $_.fullname -Filter CMakeLists.txt} | Select-Object -Property FullName
+        $results = ls -Recurse $_ -Filter test -Directory | ?{(ls -Path $_.fullname -Filter CMakeLists.txt|measure).count -gt 0}
+        $results | %{$_.fullname.substring($pwdLength)}
     }
 }
 
-Build-ExecuTorch
-Build-GTest
-Export-TestModel
-
+#Build-ExecuTorch
+# throw 1
+#Build-GTest
+#Export-TestModel
+#Probe-Tests
+#throw 1
 if (-not $args) {
     Write-Host "Running all directories:"
     $testDirs = Probe-Tests

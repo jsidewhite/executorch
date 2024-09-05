@@ -14,7 +14,8 @@
 
 #include <fcntl.h> // open()
 #include <stdio.h> // tmpnam(), remove()
-#include <unistd.h> // write(), close()
+//#include <unistd.h> // write(), close()
+#include <S:\repo_other\executorch_on_windows\executorch\runtime\platform\unistd_pal.h> // write(), close()
 
 #include <gtest/gtest.h>
 
@@ -76,9 +77,9 @@ class TempFile {
         path.c_str(),
         // O_EXCL ensures that we are the ones creating this file, to help
         // protect against race conditions.
-        O_CREAT | O_EXCL | O_RDWR,
+        O_CREAT | O_EXCL | O_RDWR);//TODO:jwjw ,
         // User can read and write, group can read.
-        S_IRUSR | S_IWUSR | S_IRGRP);
+        //S_IRUSR | S_IWUSR | S_IRGRP);
     ASSERT_GE(fd, 0) << "open(" << path << ") failed: " << strerror(errno);
 
     ssize_t nwrite = write(fd, data, size);

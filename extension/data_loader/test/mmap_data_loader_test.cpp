@@ -10,13 +10,41 @@
 
 #include <cstring>
 
-#include <unistd.h>
+//#include <unistd.h>
+//#include <S:\repo_other\executorch_on_windows\executorch\runtime\platform\unistd_pal.h> // write(), close()
 
 #include <gtest/gtest.h>
 
 #include <executorch/extension/testing_util/temp_file.h>
 #include <executorch/runtime/core/result.h>
 #include <executorch/runtime/platform/runtime.h>
+
+#ifndef _WIN32
+
+#include <sys/mman.h>
+#include <unistd.h>
+
+ET_INLINE long get_os_page_size() {
+    return sysconf(_SC_PAGESIZE)
+}
+
+#else
+
+#define NOMINMAX
+#include <windows.h>
+
+#include <executorch/runtime/platform/unistd_pal.h>
+
+// TODO: This is MIT licensed - check for compatibility with BSD.
+#include <executorch/extension/data_loader/mman_windows.h>
+
+ET_INLINE long get_os_page_size() {
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    return si.dwPageSize;
+}
+
+#endif
 
 using namespace ::testing;
 using executorch::extension::MmapDataLoader;
@@ -34,7 +62,8 @@ class MmapDataLoaderTest : public ::testing::Test {
     executorch::runtime::runtime_init();
 
     // Get the page size and ensure it's a power of 2.
-    long page_size = sysconf(_SC_PAGESIZE);
+    //long page_size = sysconf(_SC_PAGESIZE);
+    long page_size = get_os_page_size();
     ASSERT_GT(page_size, 0);
     ASSERT_EQ(page_size & ~(page_size - 1), page_size);
     page_size_ = page_size;

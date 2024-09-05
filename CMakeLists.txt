@@ -181,7 +181,7 @@ option(EXECUTORCH_BUILD_EXTENSION_RUNNER_UTIL "Build the Runner Util extension"
        OFF
 )
 
-option(EXECUTORCH_BUILD_GTESTS "Build googletest based test binaries" OFF)
+option(EXECUTORCH_BUILD_GTESTS "Build googletest based test binaries" ON)
 
 option(EXECUTORCH_BUILD_MPS "Build the MPS backend" OFF)
 
