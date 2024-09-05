@@ -159,10 +159,70 @@ int msync(void *addr, size_t len, int flags)
     return -1;
 }
 
+BOOL MyVirtualLock(PVOID pMem, DWORD dwSize)
+{
+
+    HANDLE CurrentProcess;
+    SIZE_T MinWorkingSet;
+    SIZE_T MaxWorkingSet;
+    BOOL   Success;
+
+    Success = VirtualLock(pMem, dwSize);
+
+    if (!Success)
+    {
+
+        //
+        //  Attempt to grow working set and retry.
+        //
+
+        CurrentProcess = GetCurrentProcess();
+
+        Success = GetProcessWorkingSetSize(
+            CurrentProcess,
+            &MinWorkingSet,
+            &MaxWorkingSet
+        );
+
+        if (Success)
+        {
+            MinWorkingSet = MinWorkingSet + dwSize;
+            //if (MinWorkingSet +  dwSize) ==
+                //INTSAFE_E_ARITHMETIC_OVERFLOW)
+            //{
+
+                //Success = FALSE;
+                //goto MyVirtualLockEnd;
+            //}
+
+            if (MaxWorkingSet < MinWorkingSet)
+                MaxWorkingSet = MinWorkingSet;
+
+            Success = SetProcessWorkingSetSize(
+                CurrentProcess,
+                MinWorkingSet,
+                MaxWorkingSet
+            );
+
+            if (Success)
+            {
+                Success = VirtualLock(pMem, dwSize);
+            }
+        }
+    }
+
+
+    return Success;
+}
+
 int mlock(const void *addr, size_t len)
 {
-    if (VirtualLock((LPVOID)addr, len))
+    if (MyVirtualLock((LPVOID)addr, len))
+    {
         return 0;
+    }
+    //if (VirtualLock((LPVOID)addr, len))
+        //return 0;
         
     errno =  __map_mman_error(GetLastError(), EPERM);
     

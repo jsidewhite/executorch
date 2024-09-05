@@ -39,9 +39,10 @@ ET_INLINE long get_os_page_size() {
 #include <executorch/extension/data_loader/mman_windows.h>
 
 ET_INLINE long get_os_page_size() {
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    return si.dwPageSize;
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  long pagesize = std::max(si.dwPageSize, si.dwAllocationGranularity);
+  return pagesize;
 }
 
 #endif
@@ -262,7 +263,8 @@ TEST_F(MmapDataLoaderTest, InBoundsLoadsSucceedNoMlock) {
 
 TEST_F(MmapDataLoaderTest, InBoundsLoadsSucceedUseMlock) {
   // There's no portable way to test that mlock() is actually called, but
-  // exercise the path to make sure the code still behaves correctly.
+  // exercise the path to make
+  // sure the code still behaves correctly.
   test_in_bounds_loads_succeed(MmapDataLoader::MlockConfig::UseMlock);
 }
 

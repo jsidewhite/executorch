@@ -32,7 +32,8 @@ ET_INLINE long get_os_page_size() {
 ET_INLINE long get_os_page_size() {
   SYSTEM_INFO si;
   GetSystemInfo(&si);
-  return si.dwPageSize;
+  long pagesize = si.dwAllocationGranularity > si.dwPageSize ? si.dwAllocationGranularity : si.dwPageSize;
+  return pagesize;
 }
 
 #endif
