@@ -21,7 +21,6 @@ project(llava)
 # Duplicating options as root CMakeLists.txt
 option(EXECUTORCH_BUILD_KERNELS_OPTIMIZED "Build the optimized kernels" OFF)
 
-
 include(CMakeDependentOption)
 #
 # pthreadpool: build pthreadpool library. Disable on unsupported platforms
@@ -128,13 +127,7 @@ set(XNNPACK_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../../backends/xnnpack)
 # Extra compile option and include dir for pthreadpool
 if(EXECUTORCH_BUILD_PTHREADPOOL)
   list(APPEND _common_compile_options -DET_USE_THREADPOOL)
-  list(APPEND link_libraries pthreadpool)
-  # These 2 source files are included in xnnpack_backend
-  if(NOT TARGET xnnpack_backend)
-    list(APPEND _srcs ${XNNPACK_ROOT}/threadpool/threadpool.cpp
-         ${XNNPACK_ROOT}/threadpool/threadpool_guard.cpp
-    )
-  endif()
+  list(APPEND link_libraries extension_threadpool pthreadpool)
   list(APPEND _common_include_directories
        ${XNNPACK_ROOT}/third-party/pthreadpool/include
   )
@@ -142,8 +135,7 @@ endif()
 
 # Extra sources for cpuinfo
 if(EXECUTORCH_BUILD_CPUINFO)
-  list(APPEND link_libraries cpuinfo)
-  list(APPEND _srcs ${XNNPACK_ROOT}/threadpool/cpuinfo_utils.cpp)
+  list(APPEND link_libraries extension_threadpool cpuinfo)
   list(APPEND _common_include_directories
        ${XNNPACK_ROOT}/third-party/cpuinfo/include
   )
@@ -203,7 +195,11 @@ endif()
 
 add_executable(llava_main ${_srcs})
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-  target_link_options(llava_main PRIVATE "LINKER:--gc-sections,-s")
+  if(APPLE)
+    target_link_options(llava_main PRIVATE "LINKER:-dead_strip,-s")
+  else()
+    target_link_options(llava_main PRIVATE "LINKER:--gc-sections,-s")
+  endif()
 endif()
 
 target_include_directories(llava_main PUBLIC ${_common_include_directories})
