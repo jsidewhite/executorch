@@ -1,9 +1,30 @@
+/*
+ * Copyright (c) Google Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the MIT license.
+ */
+
+/*
+ * Adapted from: https://code.google.com/archive/p/mman-win32/
+ *
+ * mman-win32
+ * mman library for Windows
+ *
+ * A light implementation of the mmap functions for MinGW.
+ *
+ * The mmap-win32 library implements a wrapper for mmap functions around the memory mapping Windows API.
+*/
 
 #include <windows.h>
 #include <errno.h>
 #include <io.h>
 
 #include "mman_windows.h"
+
+#ifndef STATUS_SECTION_TOO_BIG
+#define STATUS_SECTION_TOO_BIG ((NTSTATUS)0xC0000040L)
+#endif
 
 #ifndef FILE_MAP_EXECUTE
 #define FILE_MAP_EXECUTE    0x0020
@@ -159,72 +180,69 @@ int msync(void *addr, size_t len, int flags)
     return -1;
 }
 
-BOOL MyVirtualLock(PVOID pMem, DWORD dwSize)
+HRESULT VirtualLockAllowingProcessWorkingSetSizeIncrease(PVOID pMem, DWORD dwSize)
 {
-
-    HANDLE CurrentProcess;
-    SIZE_T MinWorkingSet;
-    SIZE_T MaxWorkingSet;
-    BOOL   Success;
-
-    Success = VirtualLock(pMem, dwSize);
-
-    if (!Success)
+    if (VirtualLock(pMem, dwSize))
     {
-
-        //
-        //  Attempt to grow working set and retry.
-        //
-
-        CurrentProcess = GetCurrentProcess();
-
-        Success = GetProcessWorkingSetSize(
-            CurrentProcess,
-            &MinWorkingSet,
-            &MaxWorkingSet
-        );
-
-        if (Success)
-        {
-            MinWorkingSet = MinWorkingSet + dwSize;
-            //if (MinWorkingSet +  dwSize) ==
-                //INTSAFE_E_ARITHMETIC_OVERFLOW)
-            //{
-
-                //Success = FALSE;
-                //goto MyVirtualLockEnd;
-            //}
-
-            if (MaxWorkingSet < MinWorkingSet)
-                MaxWorkingSet = MinWorkingSet;
-
-            Success = SetProcessWorkingSetSize(
-                CurrentProcess,
-                MinWorkingSet,
-                MaxWorkingSet
-            );
-
-            if (Success)
-            {
-                Success = VirtualLock(pMem, dwSize);
-            }
-        }
+        return S_OK;
+    }
+    
+    if (GetLastError() != HRESULT_FROM_WIN32(STATUS_SECTION_TOO_BIG))
+    {
+        return GetLastError();
+    }
+    
+    // Attempt to grow the process working set and retry
+    size_t minWorkingSetInitial;
+    size_t maxWorkingSet;
+    
+    // Get current working set
+    if (!GetProcessWorkingSetSize(
+        GetCurrentProcess(),
+        &minWorkingSetInitial,
+        &maxWorkingSet
+    ))
+    {
+        return GetLastError();
     }
 
+    size_t minWorkingSet = minWorkingSetInitial + dwSize;
+    if (minWorkingSet < minWorkingSetInitial)
+    {
+        return HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW);
+    }
+    
+    if (maxWorkingSet < minWorkingSet)
+    {
+        maxWorkingSet = minWorkingSet;
+    }
 
-    return Success;
+    // Grow working set
+    if (!SetProcessWorkingSetSize(
+        GetCurrentProcess(),
+        minWorkingSet,
+        maxWorkingSet
+    ))
+    {
+        return GetLastError();
+    }
+
+    if (!VirtualLock(pMem, dwSize))
+    {
+        return GetLastError();
+    }
+    return S_OK;
 }
 
 int mlock(const void *addr, size_t len)
 {
-    if (MyVirtualLock((LPVOID)addr, len))
+    HRESULT hr = VirtualLockAllowingProcessWorkingSetSizeIncrease((LPVOID)addr, len);
+    if (SUCCEEDED(hr))
     {
         return 0;
     }
-    //if (VirtualLock((LPVOID)addr, len))
-        //return 0;
         
-    errno =  __map_mman_error(GetLastError(), EPERM);
+    errno =  __map_mman_error(hr, EPERM);
     
     return -1;
 }
