@@ -182,7 +182,7 @@ Result<FreeableBuffer> MmapDataLoader::load(
       get_overlapping_pages(static_cast<uintptr_t>(offset), size, page_size_);
 
   size_t map_size = range.size;
-#ifdef _MSC_VER
+#ifdef _WIN32
   // On Windows, don't mmap-in memory past end of on-disk file.
   // 
   // The Windows implementation of mmap uses CreateFileMapping which returns
