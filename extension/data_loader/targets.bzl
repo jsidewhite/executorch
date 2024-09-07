@@ -55,6 +55,7 @@ def define_common_targets():
     runtime.cxx_library(
         name = "mmap_data_loader",
         srcs = ["mmap_data_loader.cpp"],
+        headers = ["mman.h"],
         exported_headers = ["mmap_data_loader.h"],
         visibility = [
             "//executorch/test/...",
@@ -67,3 +68,19 @@ def define_common_targets():
             "//executorch/runtime/core:core",
         ],
     )
+
+    runtime.cxx_library(
+        name = "mman_windows",
+        srcs = ["mman_windows.cpp"] if host_info().os.is_windows else [],
+        headers = ["mman_windows.h"],
+        visibility = [
+            "//executorch/test/...",
+            "//executorch/runtime/executor/test/...",
+            "//executorch/extension/data_loader/test/...",
+            "@EXECUTORCH_CLIENTS",
+        ],
+        exported_deps = [
+            "//executorch/runtime/core:core",
+        ],
+    )
+
